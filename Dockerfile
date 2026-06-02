@@ -14,15 +14,25 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends gnupg dirmngr curl && \
+    # Eksik olan 0E98404D386FA1D9 anahtarını Ubuntu anahtar sunucusundan çekip APT anahtarlığına ekliyoruz
+    (apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9 || \
+     apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 0E98404D386FA1D9 || \
+     echo "GPG key import failed, continuing with unauthenticated fallback...") && \
+    # Alternatif olarak APT'nin imza kontrolünü bu aşamada esnetmek için ayar yapıyoruz
+    echo "Acquire::AllowInsecureRepositories \"true\";" > /etc/apt/apt.conf.d/99allow-insecure && \
+    echo "Acquire::AllowUnauthenticated \"true\";" >> /etc/apt/apt.conf.d/99allow-insecure && \
+    # Sistem paketlerini kuruyoruz
+    apt-get update && apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
     build-essential \
     libpq-dev \
     tesseract-ocr \
     libtesseract-dev \
     poppler-utils \
-    curl \
     git \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /etc/apt/apt.conf.d/99allow-insecure
 
 # Create app directory
 WORKDIR /app

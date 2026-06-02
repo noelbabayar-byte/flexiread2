@@ -1,5 +1,4 @@
 version: '3.9'
-
 services:
   # PostgreSQL Database
   db:
@@ -28,7 +27,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
   # Redis Cache & Message Broker
   redis:
     image: redis:7-alpine
@@ -51,7 +49,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
   # MinIO (S3-compatible storage for local development)
   minio:
     image: minio/minio:latest
@@ -78,7 +75,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
   # MinIO Initialization (runs once to setup buckets and CORS)
   minio-init:
     image: minio/mc:latest
@@ -119,7 +115,6 @@ CORS
       options:
         max-size: "10m"
         max-file: "3"
-
   # FastAPI Backend
   api:
     build:
@@ -179,13 +174,13 @@ CORS
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
   # Celery Worker
   worker:
     build:
@@ -235,7 +230,6 @@ CORS
       options:
         max-size: "10m"
         max-file: "3"
-
   # React Frontend
   frontend:
     build:
@@ -250,7 +244,7 @@ CORS
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend/src:/app/src
+      - ./frontend:/app/src
       - ./frontend/public:/app/public
       - /app/node_modules
     networks:
@@ -263,11 +257,9 @@ CORS
       options:
         max-size: "10m"
         max-file: "3"
-
 networks:
   flexiread-network:
     driver: bridge
-
 volumes:
   postgres_data:
     driver: local
