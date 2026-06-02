@@ -1,0 +1,277 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: flexiread-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-flexiread}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-flexiread_dev_password}
+      POSTGRES_DB: ${DB_NAME:-flexiread}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - flexiread-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-flexiread}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis Cache & Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: flexiread-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-flexiread_redis_dev}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - flexiread-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # MinIO (S3-compatible storage for local development)
+  minio:
+    image: minio/minio:latest
+    container_name: flexiread-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - flexiread-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # MinIO Initialization (runs once to setup buckets and CORS)
+  minio-init:
+    image: minio/mc:latest
+    container_name: flexiread-minio-init
+    entrypoint: /bin/sh
+    command: -c "
+      echo 'Waiting for MinIO...' &&
+      sleep 10 &&
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      echo 'Creating bucket...' &&
+      mc mb local/flexiread-dev --ignore-existing &&
+      echo 'Setting CORS policy...' &&
+      mc cors set local/flexiread-dev - <<'CORS'
+[
+  {
+    \"AllowedHeaders\": [\"*\"],
+    \"AllowedMethods\": [\"GET\", \"PUT\", \"POST\", \"DELETE\", \"HEAD\"],
+    \"AllowedOrigins\": [\"http://localhost:5173\", \"http://localhost:3000\", \"http://frontend:5173\"],
+    \"ExposeHeaders\": [\"ETag\", \"x-amz-version-id\"],
+    \"MaxAgeSeconds\": 3000
+  }
+]
+CORS
+      &&
+      echo 'Enabling versioning...' &&
+      mc version enable local/flexiread-dev &&
+      echo '✓ MinIO initialization complete' &&
+      exit 0
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - flexiread-network
+    restart: "no"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # FastAPI Backend
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: flexiread-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${DB_USER:-flexiread}:${DB_PASSWORD:-flexiread_dev_password}@db:5432/${DB_NAME:-flexiread}
+      
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/0
+      
+      # Celery
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/1
+      
+      # JWT
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_HOURS: 24
+      
+      # AWS S3 (Internal endpoint for Docker network)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-flexiread-dev}
+      AWS_S3_REGION: ${AWS_S3_REGION:-us-east-1}
+      AWS_S3_INTERNAL_ENDPOINT_URL: ${AWS_S3_INTERNAL_ENDPOINT_URL:-http://minio:9000}
+      AWS_S3_PUBLIC_ENDPOINT_URL: ${AWS_S3_PUBLIC_ENDPOINT_URL:-http://localhost:9000}
+      
+      # App
+      APP_NAME: FlexiRead
+      APP_ENV: development
+      DEBUG: "True"
+      LOG_LEVEL: DEBUG
+      
+      # CORS
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000,http://frontend:5173
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+    networks:
+      - flexiread-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Celery Worker
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: flexiread-worker
+    command: celery -A app.core.celery_app worker --loglevel=debug --concurrency=1
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${DB_USER:-flexiread}:${DB_PASSWORD:-flexiread_dev_password}@db:5432/${DB_NAME:-flexiread}
+      
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/0
+      
+      # Celery
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/1
+      
+      # AWS S3 (Internal endpoint for Docker network)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-flexiread-dev}
+      AWS_S3_REGION: ${AWS_S3_REGION:-us-east-1}
+      AWS_S3_INTERNAL_ENDPOINT_URL: ${AWS_S3_INTERNAL_ENDPOINT_URL:-http://minio:9000}
+      AWS_S3_PUBLIC_ENDPOINT_URL: ${AWS_S3_PUBLIC_ENDPOINT_URL:-http://localhost:9000}
+      
+      # App
+      APP_NAME: FlexiRead
+      APP_ENV: development
+      DEBUG: "True"
+      LOG_LEVEL: DEBUG
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+      - ./uploads:/app/uploads
+    networks:
+      - flexiread-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: flexiread-frontend
+    environment:
+      VITE_API_URL: http://api:8000
+      VITE_API_TIMEOUT: 30000
+      NODE_ENV: development
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - /app/node_modules
+    networks:
+      - flexiread-network
+    depends_on:
+      - api
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  flexiread-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
