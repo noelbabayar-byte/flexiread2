@@ -1,11 +1,14 @@
 {
   "name": "FlexiRead - PDF to Reflowable Text SaaS",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "context": "."
-  },
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    }
   },
   "forwardPorts": [3000, 8000, 5432, 6379, 9000],
   "portsAttributes": {
@@ -37,15 +40,13 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "ms-python.debugpy",
-        "ms-vscode.makefile-tools",
         "esbenp.prettier-vscode",
         "dbaeumer.vscode-eslint",
         "charliermarsh.ruff"
       ],
       "settings": {
-        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.defaultInterpreterPath": "/usr/local/bin/python3",
         "python.linting.enabled": true,
-        "python.linting.pylintEnabled": true,
         "python.formatting.provider": "black",
         "[python]": {
           "editor.defaultFormatter": "ms-python.python",
@@ -57,6 +58,5 @@
         }
       }
     }
-  },
-  "remoteUser": "vscode"
+  }
 }
