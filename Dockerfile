@@ -63,7 +63,7 @@ RUN pip install \
 # Copy application code
 COPY app/ ./app/
 COPY worker/ ./worker/
-COPY migrations/ ./migrations/
+
 
 # Create non-root user (optional but recommended)
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
@@ -87,7 +87,7 @@ RUN pip install gunicorn
 # Copy application code
 COPY app/ ./app/
 COPY worker/ ./worker/
-COPY migrations/ ./migrations/
+
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
