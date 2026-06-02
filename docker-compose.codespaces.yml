@@ -131,7 +131,7 @@ services:
   # ============================================================================
   api:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
       target: development
     container_name: flexiread-api
@@ -179,7 +179,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - .:/app
       - /app/__pycache__
     networks:
       - flexiread-network
@@ -201,7 +201,7 @@ services:
   # ============================================================================
   worker:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
       target: development
     container_name: flexiread-worker
@@ -232,7 +232,7 @@ services:
       LOG_LEVEL: DEBUG
     
     volumes:
-      - ./backend:/app
+      - .:/app
       - /app/__pycache__
       - ./uploads:/app/uploads
     networks:
