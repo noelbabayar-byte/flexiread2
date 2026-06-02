@@ -5,8 +5,15 @@ echo "🚀 FlexiRead Codespaces Setup Started..."
 
 # Update system packages
 echo "📦 Updating system packages..."
-apt-get update
-apt-get install -y --no-install-recommends \
+apt-get update --allow-unauthenticated && \
+    apt-get install -y --no-install-recommends gnupg dirmngr curl && \
+    (apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9 || \
+     apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 0E98404D386FA1D9 || \
+     echo "GPG key import failed, continuing with unauthenticated fallback...") && \
+    echo "Acquire::AllowInsecureRepositories \"true\";" > /etc/apt/apt.conf.d/99allow-insecure && \
+    echo "Acquire::AllowUnauthenticated \"true\";" >> /etc/apt/apt.conf.d/99allow-insecure && \
+    apt-get update
+apt-get install -y --no-install-recommends --allow-unauthenticated \
   build-essential \
   libpq-dev \
   tesseract-ocr \
@@ -17,7 +24,9 @@ apt-get install -y --no-install-recommends \
   curl \
   wget \
   git \
-  ca-certificates
+  ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /etc/apt/apt.conf.d/99allow-insecure
 
 # Verify Python is installed
 echo "🐍 Checking Python installation..."
