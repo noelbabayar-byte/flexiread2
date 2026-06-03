@@ -33,11 +33,12 @@ class RateLimiter:
             True if request is allowed, False if rate limited
         """
         try:
-            current = redis_client.incr(key)
-            
-            if current == 1:
-                # First request, set expiration
-                redis_client.expire(key, window_seconds)
+            # Use pipeline for atomic incr+expire
+            pipe = redis_client.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, window_seconds)
+            results = pipe.execute()
+            current = results[0]
             
             return current <= max_requests
         except Exception as e:

@@ -15,10 +15,9 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Configure pytesseract with fallback
-tesseract_path = getattr(settings, 'TESSERACT_PATH', None) or shutil.which('tesseract') or '/usr/bin/tesseract'
-pytesseract.pytesseract.tesseract_cmd = tesseract_path
-logger.info(f'Tesseract configured at: {tesseract_path}')
+# Configure pytesseract
+pytesseract.pytesseract.tesseract_cmd = settings.TESSERACT_CMD
+logger.info(f'Tesseract configured at: {settings.TESSERACT_CMD}')
 
 
 class PDFProcessor:

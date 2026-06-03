@@ -130,7 +130,7 @@ class Settings(BaseSettings):
     OCR_ENABLED: bool = Field(default=True, description="Enable OCR")
     OCR_LANGUAGE: str = Field(default="tur,eng", description="OCR languages")
     OCR_TIMEOUT_SECONDS: int = Field(default=300, description="OCR timeout")
-    TESSERACT_PATH: str = Field(default="/usr/bin/tesseract", description="Tesseract OCR path")
+    TESSERACT_CMD: str = Field(default="/usr/bin/tesseract", description="Tesseract OCR command path")
     
     # ========================================================================
     # Subscription & Pricing

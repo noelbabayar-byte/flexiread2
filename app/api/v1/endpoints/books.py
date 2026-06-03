@@ -112,7 +112,7 @@ def get_upload_url(
             title=title,
             original_filename=request.filename,
             status=BookStatus.PENDING,
-            original_pdf_url=f"s3://{settings.AWS_S3_BUCKET_NAME}/uploads/{current_user.id}/{book_id}/{request.filename}"
+            original_pdf_url=f"s3://{settings.AWS_S3_BUCKET}/uploads/{current_user.id}/{book_id}/{request.filename}"
         )
         
         db.add(book)
@@ -395,7 +395,7 @@ def get_book_content(
         # Parse S3 key from URL
         # URL format: s3://bucket/key
         s3_key = book.parsed_content_url.replace(
-            f"s3://{settings.AWS_S3_BUCKET_NAME}/",
+            f"s3://{settings.AWS_S3_BUCKET}/",
             ""
         )
         

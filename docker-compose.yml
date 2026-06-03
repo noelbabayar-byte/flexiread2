@@ -13,7 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      # - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql  # File doesn't exist
     networks:
       - flexiread-network
     healthcheck:
@@ -39,7 +39,7 @@ services:
     networks:
       - flexiread-network
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -118,7 +118,7 @@ CORS
   # FastAPI Backend
   api:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
       target: development
     container_name: flexiread-api
@@ -158,7 +158,7 @@ CORS
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - .:/app
       - /app/__pycache__
     networks:
       - flexiread-network
@@ -184,7 +184,7 @@ CORS
   # Celery Worker
   worker:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
       target: development
     container_name: flexiread-worker
@@ -214,7 +214,7 @@ CORS
       DEBUG: "True"
       LOG_LEVEL: DEBUG
     volumes:
-      - ./backend:/app
+      - .:/app
       - /app/__pycache__
       - ./uploads:/app/uploads
     networks:

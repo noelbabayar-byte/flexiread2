@@ -142,8 +142,12 @@ class S3Storage:
         """
         try:
             url = self.client.generate_presigned_url(
-                "get_object",
-                Params={"Bucket": self.bucket, "Key": s3_key},
+                "put_object",
+                Params={
+                    "Bucket": self.bucket,
+                    "Key": s3_key,
+                    "ContentType": "application/pdf"
+                },
                 ExpiresIn=expiration
             )
             return url

@@ -137,7 +137,7 @@ def login(
         
         # Create tokens
         access_token_expires = timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+            hours=settings.JWT_EXPIRATION_HOURS
         )
         access_token = security_manager.create_access_token(
             data={"sub": str(user.id)},
@@ -153,7 +153,7 @@ def login(
             access_token=access_token,
             refresh_token=refresh_token,
             token_type="bearer",
-            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            expires_in=settings.JWT_EXPIRATION_HOURS * 3600
         )
     
     except HTTPException:

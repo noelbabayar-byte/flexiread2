@@ -9,11 +9,13 @@ import logging
 import redis
 import json
 from typing import Optional
+from datetime import datetime
 from sqlalchemy.orm import Session
 from app.core.celery_app import celery_app
 from app.core.database import SessionLocal
 from app.core.config import settings
 from app.models.book import Book, BookStatus
+from app.models.user import User
 from app.utils.s3_storage import s3_storage
 from app.utils.ocr_processor import process_pdf_file
 
@@ -266,9 +268,11 @@ def cleanup_old_books():
             try:
                 # Delete from S3
                 if book.original_pdf_url:
-                    s3_storage.delete_file(book.original_pdf_url)
+                    s3_key = book.original_pdf_url.replace(f"s3://{settings.AWS_S3_BUCKET}/", "")
+                    s3_storage.delete_file(s3_key)
                 if book.parsed_content_url:
-                    s3_storage.delete_file(book.parsed_content_url)
+                    s3_key = book.parsed_content_url.replace(f"s3://{settings.AWS_S3_BUCKET}/", "")
+                    s3_storage.delete_file(s3_key)
                 
                 # Delete from database
                 db.delete(book)
@@ -293,16 +297,19 @@ def reset_monthly_quotas():
     Periodic task to reset monthly quotas for all users.
     Should be scheduled to run on the 1st of each month.
     """
-    from datetime import datetime
-    
     db = SessionLocal()
     try:
         users = db.query(User).all()
         now = datetime.utcnow()
         
         for user in users:
-            user.books_processed_this_month = 0
-            user.monthly_quota_reset_date = datetime(now.year, now.month, 1)
+            # Reset based on subscription tier
+            if user.plan_type.value == "pro":
+                user.ocr_quota_remaining = settings.PRO_TIER_MONTHLY_QUOTA
+            else:
+                user.ocr_quota_remaining = settings.FREE_TIER_MONTHLY_QUOTA
+            
+            user.ocr_quota_reset_date = datetime(now.year, now.month, 1)
         
         db.commit()
         logger.info(f"Reset quotas for {len(users)} users")
@@ -318,5 +325,3 @@ def reset_monthly_quotas():
         db.close()
 
 
-# Import User model for quota tracking
-from app.models.user import User
