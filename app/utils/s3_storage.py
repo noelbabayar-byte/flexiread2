@@ -23,9 +23,9 @@ class S3Storage:
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             region_name=settings.AWS_S3_REGION,
-            endpoint_url=settings.AWS_S3_ENDPOINT_URL,  # For MinIO
+            endpoint_url=settings.AWS_S3_INTERNAL_ENDPOINT_URL,  # For MinIO
         )
-        self.bucket = settings.AWS_S3_BUCKET_NAME
+        self.bucket = settings.AWS_S3_BUCKET
     
     def upload_file(
         self,

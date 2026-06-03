@@ -287,5 +287,36 @@ def cleanup_old_books():
         db.close()
 
 
+@celery_app.task(name="reset_monthly_quotas")
+def reset_monthly_quotas():
+    """
+    Periodic task to reset monthly quotas for all users.
+    Should be scheduled to run on the 1st of each month.
+    """
+    from datetime import datetime
+    
+    db = SessionLocal()
+    try:
+        users = db.query(User).all()
+        now = datetime.utcnow()
+        
+        for user in users:
+            user.books_processed_this_month = 0
+            user.monthly_quota_reset_date = datetime(now.year, now.month, 1)
+        
+        db.commit()
+        logger.info(f"Reset quotas for {len(users)} users")
+        
+        return {"status": "success", "users_reset": len(users)}
+    
+    except Exception as e:
+        logger.error(f"Quota reset failed: {e}")
+        db.rollback()
+        raise
+    
+    finally:
+        db.close()
+
+
 # Import User model for quota tracking
 from app.models.user import User

@@ -9,13 +9,16 @@ from PIL import Image
 import io
 import logging
 import gc
+import shutil
 from typing import Dict, List, Any, Optional, Tuple
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Configure pytesseract
-pytesseract.pytesseract.pytesseract_cmd = settings.TESSERACT_PATH
+# Configure pytesseract with fallback
+tesseract_path = getattr(settings, 'TESSERACT_PATH', None) or shutil.which('tesseract') or '/usr/bin/tesseract'
+pytesseract.pytesseract.tesseract_cmd = tesseract_path
+logger.info(f'Tesseract configured at: {tesseract_path}')
 
 
 class PDFProcessor:
