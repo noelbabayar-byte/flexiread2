@@ -119,8 +119,8 @@ class SecurityManager:
         try:
             payload = jwt.decode(
                 token,
-                settings.SECRET_KEY,
-                algorithms=[settings.ALGORITHM]
+                settings.JWT_SECRET_KEY,
+                algorithms=[settings.JWT_ALGORITHM]
             )
             return payload
         except JWTError as e:
