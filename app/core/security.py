@@ -3,7 +3,7 @@ Security utilities for authentication and authorization.
 Handles JWT token generation/validation and password hashing.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -64,9 +64,9 @@ class SecurityManager:
         to_encode = data.copy()
         
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(
+            expire = datetime.now(timezone.utc) + timedelta(
                 hours=settings.JWT_EXPIRATION_HOURS
             )
         
@@ -92,7 +92,7 @@ class SecurityManager:
             JWT refresh token string
         """
         to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(
+        expire = datetime.now(timezone.utc) + timedelta(
             days=settings.JWT_REFRESH_EXPIRATION_DAYS
         )
         to_encode.update({"exp": expire})

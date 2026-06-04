@@ -39,7 +39,7 @@ PRO_TIER_MAX_SIZE = 200 * 1024 * 1024  # 200 MB
 
 
 @router.post("/upload-url", response_model=PresignedURLResponse)
-def get_upload_url(
+async def get_upload_url(
     request: PresignedURLRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -145,7 +145,7 @@ def get_upload_url(
         raise
     except Exception as e:
         logger.error(f"Upload URL generation failed: {e}")
-        db.rollback()
+        # db.rollback() KALDIR - get_db dependency'si zaten yapıyor
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate upload URL"
@@ -153,7 +153,7 @@ def get_upload_url(
 
 
 @router.post("/process/{book_id}", response_model=ProcessBookResponse)
-def process_book(
+async def process_book(
     book_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -253,7 +253,7 @@ def process_book(
 
 
 @router.get("/{book_id}/status", response_model=BookStatusResponse)
-def get_book_status(
+async def get_book_status(
     book_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -315,7 +315,7 @@ def get_book_status(
         
         logger.debug(f"Status retrieved: {book_id}, progress={book.progress_percentage}%")
         
-        return BookStatusResponse.model_validate(book)
+        return BookStatusResponse.model_validate(book, from_attributes=True)
     
     except HTTPException:
         raise
@@ -328,7 +328,7 @@ def get_book_status(
 
 
 @router.get("/{book_id}/content", response_model=BookContentResponse)
-def get_book_content(
+async def get_book_content(
     book_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -403,18 +403,7 @@ def get_book_content(
         # In production, you might fetch from S3 and return full content
         logger.info(f"Content retrieved: {book_id}")
         
-        return BookContentResponse(
-            id=book.id,
-            title=book.title,
-            status=book.status,
-            total_pages=book.total_pages,
-            pages=[],  # Would be populated from S3 content
-            summary={
-                "content_url": book.parsed_content_url,
-                "total_pages": book.total_pages,
-                "processed_pages": book.processed_pages,
-            }
-        )
+        return BookContentResponse.model_validate(book, from_attributes=True)
     
     except HTTPException:
         raise

@@ -88,8 +88,8 @@ class PDFProcessor:
             page = self.document[page_num]
             
             # Render page to image (300 DPI for better OCR)
-            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
-            img_data = pix.tobytes("ppm")
+            pix = page.get_pixmap(matrix=fitz.Matrix(300/72, 300/72), alpha=False)
+            img_data = pix.tobytes("png")
             
             # Convert to PIL Image
             img = Image.open(io.BytesIO(img_data))
@@ -174,7 +174,7 @@ class PDFProcessor:
                     progress_callback(page_num + 1, self.total_pages)
                 
                 # Periodic garbage collection to prevent memory leak
-                if (page_num + 1) % 10 == 0:
+                if (page_num + 1) % 50 == 0:
                     gc.collect()
                     logger.debug(f"Garbage collection triggered after page {page_num + 1}")
             

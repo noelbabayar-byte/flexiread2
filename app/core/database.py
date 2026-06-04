@@ -12,14 +12,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Create database engine with connection pooling
-# MVP: Keep pool small to avoid "too many clients" errors on cheap RDS/Supabase
+# Optimized pool settings based on Part 1 requirements
 engine = create_engine(
     settings.DATABASE_URL,
     poolclass=QueuePool,
-    pool_size=5,  # Number of connections to keep in the pool
-    max_overflow=5,  # Maximum overflow connections
+    pool_size=settings.DB_POOL_SIZE,  # Use value from settings
+    max_overflow=settings.DB_MAX_OVERFLOW,  # Use value from settings
     pool_pre_ping=True,  # Verify connections before using them
-    echo=settings.DEBUG,  # Log SQL queries in debug mode
+    pool_recycle=settings.DB_POOL_RECYCLE,  # Recycle connections after 1 hour
+    echo=settings.DB_ECHO,  # Log SQL queries if configured
     connect_args={
         "connect_timeout": 10,
         "application_name": "flexiread_backend",
@@ -57,6 +58,9 @@ def init_db():
     Call this once on application startup.
     """
     from app.models.base import Base
+    # Models must be imported before create_all
+    import app.models.user
+    import app.models.book
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables initialized")
 

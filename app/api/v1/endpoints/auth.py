@@ -17,7 +17,7 @@ from app.schemas.auth import (
     TokenResponse,
 )
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(
+async def register(
     request: UserRegisterRequest,
     db: Session = Depends(get_db)
 ):
@@ -56,7 +56,7 @@ def register(
         password_hash = security_manager.hash_password(request.password)
         
         # Calculate quota reset date (next month)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if now.month == 12:
             reset_date = datetime(now.year + 1, 1, 1)
         else:
@@ -84,7 +84,7 @@ def register(
         raise
     except Exception as e:
         logger.error(f"Registration failed: {e}")
-        db.rollback()
+        # db.rollback() KALDIR - get_db dependency'si zaten yapıyor
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed"
@@ -92,7 +92,7 @@ def register(
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(
+async def login(
     request: UserLoginRequest,
     db: Session = Depends(get_db)
 ):
@@ -132,7 +132,7 @@ def login(
             )
         
         # Update last login
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.now(timezone.utc)
         db.commit()
         
         # Create tokens

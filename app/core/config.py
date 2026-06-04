@@ -4,9 +4,10 @@ Supports both local development and GitHub Codespaces environments
 """
 
 import os
-from typing import Optional
+import secrets
+from typing import Optional, List, Any
 from pydantic_settings import BaseSettings
-from pydantic import Field, validator, model_validator
+from pydantic import Field, field_validator, ValidationInfo
 
 
 class Settings(BaseSettings):
@@ -32,8 +33,8 @@ class Settings(BaseSettings):
     DATABASE_URL: Optional[str] = Field(default=None, description="Full database URL")
     
     # Database connection pool
-    DB_POOL_SIZE: int = Field(default=5, description="Database pool size")
-    DB_MAX_OVERFLOW: int = Field(default=5, description="Database max overflow")
+    DB_POOL_SIZE: int = Field(default=20, description="Database pool size")
+    DB_MAX_OVERFLOW: int = Field(default=30, description="Database max overflow")
     DB_POOL_RECYCLE: int = Field(default=3600, description="Database pool recycle time")
     DB_ECHO: bool = Field(default=False, description="Echo SQL queries")
     
@@ -58,7 +59,7 @@ class Settings(BaseSettings):
     # JWT & Authentication
     # ========================================================================
     JWT_SECRET_KEY: str = Field(
-        default="dev-secret-key-change-in-production-min-32-chars",
+        default_factory=lambda: secrets.token_urlsafe(32),
         description="JWT secret key"
     )
     JWT_ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
@@ -111,9 +112,9 @@ class Settings(BaseSettings):
     # ========================================================================
     # CORS Configuration
     # ========================================================================
-    ALLOWED_ORIGINS: str = Field(
+    ALLOWED_ORIGINS: Any = Field(
         default="http://localhost:5173,http://localhost:3000",
-        description="Allowed CORS origins (comma-separated)"
+        description="Allowed CORS origins (comma-separated or list)"
     )
     
     # ========================================================================
@@ -154,125 +155,145 @@ class Settings(BaseSettings):
     FEATURE_COLLABORATION: bool = Field(default=False, description="Collaboration feature")
     FEATURE_EXPORT_PDF: bool = Field(default=True, description="Export PDF feature")
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": True,
+        "extra": "ignore"
+    }
     
     # ========================================================================
     # Validators and Post-Init Logic
     # ========================================================================
     
-    @validator("DATABASE_URL", pre=True, always=True)
-    def build_database_url(cls, v, values):
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def build_database_url(cls, v: Optional[str], info: ValidationInfo) -> str:
         """Build DATABASE_URL if not provided"""
         if v:
             return v
         
-        db_user = values.get("DB_USER", "flexiread")
-        db_password = values.get("DB_PASSWORD", "flexiread_dev_password")
-        db_host = values.get("DB_HOST", "db")
-        db_port = values.get("DB_PORT", 5432)
-        db_name = values.get("DB_NAME", "flexiread")
+        data = info.data
+        db_user = data.get("DB_USER", "flexiread")
+        db_password = data.get("DB_PASSWORD", "flexiread_dev_password")
+        db_host = data.get("DB_HOST", "db")
+        db_port = data.get("DB_PORT", 5432)
+        db_name = data.get("DB_NAME", "flexiread")
         
         return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     
-    @validator("REDIS_URL", pre=True, always=True)
-    def build_redis_url(cls, v, values):
+    @field_validator("REDIS_URL", mode="before")
+    @classmethod
+    def build_redis_url(cls, v: Optional[str], info: ValidationInfo) -> str:
         """Build REDIS_URL if not provided"""
         if v:
             return v
         
-        redis_password = values.get("REDIS_PASSWORD", "flexiread_redis_dev")
-        redis_host = values.get("REDIS_HOST", "redis")
-        redis_port = values.get("REDIS_PORT", 6379)
-        redis_db = values.get("REDIS_DB", 0)
+        data = info.data
+        redis_password = data.get("REDIS_PASSWORD", "flexiread_redis_dev")
+        redis_host = data.get("REDIS_HOST", "redis")
+        redis_port = data.get("REDIS_PORT", 6379)
+        redis_db = data.get("REDIS_DB", 0)
         
         return f"redis://:{redis_password}@{redis_host}:{redis_port}/{redis_db}"
     
-    @validator("CELERY_BROKER_URL", pre=True, always=True)
-    def build_celery_broker_url(cls, v, values):
+    @field_validator("CELERY_BROKER_URL", mode="before")
+    @classmethod
+    def build_celery_broker_url(cls, v: Optional[str], info: ValidationInfo) -> str:
         """Build CELERY_BROKER_URL if not provided"""
         if v:
             return v
-        return values.get("REDIS_URL", "redis://:flexiread_redis_dev@redis:6379/0")
+        return info.data.get("REDIS_URL") or "redis://:flexiread_redis_dev@redis:6379/0"
     
-    @validator("CELERY_RESULT_BACKEND", pre=True, always=True)
-    def build_celery_result_backend(cls, v, values):
+    @field_validator("CELERY_RESULT_BACKEND", mode="before")
+    @classmethod
+    def build_celery_result_backend(cls, v: Optional[str], info: ValidationInfo) -> str:
         """Build CELERY_RESULT_BACKEND if not provided"""
         if v:
             return v
-        redis_url = values.get("REDIS_URL", "redis://:flexiread_redis_dev@redis:6379/0")
+        redis_url = info.data.get("REDIS_URL") or "redis://:flexiread_redis_dev@redis:6379/0"
         return redis_url.replace("/0", "/1")
     
-    @validator("AWS_S3_PUBLIC_ENDPOINT_URL", pre=True, always=True)
-    def set_public_s3_endpoint(cls, v, values):
+    @field_validator("AWS_S3_PUBLIC_ENDPOINT_URL", mode="before")
+    @classmethod
+    def set_public_s3_endpoint(cls, v: Optional[str], info: ValidationInfo) -> str:
         """Set public S3 endpoint based on environment"""
         if v:
             return v
         
+        data = info.data
         # If in Codespaces, use the public URL
-        if values.get("CODESPACES"):
-            codespace_name = values.get("CODESPACE_NAME", "flexiread")
+        if data.get("CODESPACES"):
+            codespace_name = data.get("CODESPACE_NAME", "flexiread")
             return f"https://{codespace_name}-9000.github.dev"
         
         # Otherwise, use localhost
         return "http://localhost:9000"
     
-    @validator("PUBLIC_API_URL", pre=True, always=True)
-    def set_public_api_url(cls, v, values):
+    @field_validator("PUBLIC_API_URL", mode="before")
+    @classmethod
+    def set_public_api_url(cls, v: Optional[str], info: ValidationInfo) -> str:
         """Set public API URL based on environment"""
         if v:
             return v
         
+        data = info.data
         # If in Codespaces, use the public URL
-        if values.get("CODESPACES"):
-            codespace_name = values.get("CODESPACE_NAME", "flexiread")
+        if data.get("CODESPACES"):
+            codespace_name = data.get("CODESPACE_NAME", "flexiread")
             return f"https://{codespace_name}-8000.github.dev"
         
         # Otherwise, use localhost
         return "http://localhost:8000"
     
-    @validator("PUBLIC_FRONTEND_URL", pre=True, always=True)
-    def set_public_frontend_url(cls, v, values):
+    @field_validator("PUBLIC_FRONTEND_URL", mode="before")
+    @classmethod
+    def set_public_frontend_url(cls, v: Optional[str], info: ValidationInfo) -> str:
         """Set public frontend URL based on environment"""
         if v:
             return v
         
+        data = info.data
         # If in Codespaces, use the public URL
-        if values.get("CODESPACES"):
-            codespace_name = values.get("CODESPACE_NAME", "flexiread")
+        if data.get("CODESPACES"):
+            codespace_name = data.get("CODESPACE_NAME", "flexiread")
             return f"https://{codespace_name}-5173.github.dev"
         
         # Otherwise, use localhost
         return "http://localhost:5173"
     
-    @validator("VITE_API_URL", pre=True, always=True)
-    def set_vite_api_url(cls, v, values):
+    @field_validator("VITE_API_URL", mode="before")
+    @classmethod
+    def set_vite_api_url(cls, v: Optional[str], info: ValidationInfo) -> str:
         """Set Vite API URL (same as PUBLIC_API_URL)"""
         if v:
             return v
-        return values.get("PUBLIC_API_URL", "http://localhost:8000")
+        return info.data.get("PUBLIC_API_URL") or "http://localhost:8000"
     
-    @validator("ALLOWED_ORIGINS", pre=True, always=True)
-    def build_allowed_origins(cls, v, values):
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def build_allowed_origins(cls, v: Any, info: ValidationInfo) -> List[str]:
         """Build ALLOWED_ORIGINS list"""
+        origins = []
         if isinstance(v, str):
-            origins = v.split(",")
-        else:
-            origins = v or []
+            origins = [origin.strip() for origin in v.split(",") if origin.strip()]
+        elif isinstance(v, list):
+            origins = v
         
+        data = info.data
         # Add public frontend URL if in Codespaces
-        if values.get("CODESPACES"):
-            public_frontend = values.get("PUBLIC_FRONTEND_URL", "http://localhost:5173")
-            if public_frontend not in origins:
+        if data.get("CODESPACES"):
+            public_frontend = data.get("PUBLIC_FRONTEND_URL")
+            if public_frontend and public_frontend not in origins:
                 origins.append(public_frontend)
         
-        return ",".join(origins)
+        return origins
     
     def get_allowed_origins_list(self) -> list:
         """Get ALLOWED_ORIGINS as a list"""
-        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",")]
+        if isinstance(self.ALLOWED_ORIGINS, list):
+            return self.ALLOWED_ORIGINS
+        return [o.strip() for o in str(self.ALLOWED_ORIGINS).split(",")]
     
     def is_codespaces(self) -> bool:
         """Check if running in Codespaces"""

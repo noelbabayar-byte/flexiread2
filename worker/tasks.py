@@ -9,7 +9,7 @@ import logging
 import redis
 import json
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.core.celery_app import celery_app
 from app.core.database import SessionLocal
@@ -80,7 +80,7 @@ def batch_update_db_progress(
         db.rollback()
 
 
-def progress_callback_factory(book_id: str):
+def progress_callback_factory(book_id: str, db_session: Session):
     """
     Create a progress callback function for PDF processor.
     
@@ -101,17 +101,13 @@ def progress_callback_factory(book_id: str):
         
         # Batch update to database (every N pages)
         if current_page % PROGRESS_BATCH_SIZE == 0 or current_page == total_pages:
-            db = SessionLocal()
-            try:
-                batch_update_db_progress(db, book_id, current_page, total_pages)
-            finally:
-                db.close()
+            batch_update_db_progress(db_session, book_id, current_page, total_pages)
     
     return callback
 
 
-@celery_app.task(bind=True, name="process_pdf_task")
-def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
+@celery_app.task(name="process_pdf_task")
+def process_pdf_task(book_id: str, s3_pdf_key: str, user_id: str) -> dict:
     """
     Main Celery task for PDF processing and OCR.
     
@@ -162,7 +158,7 @@ def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
         
         # Step 2: Process PDF with progress callback
         logger.info("Starting PDF processing...")
-        progress_callback = progress_callback_factory(book_id)
+        progress_callback = progress_callback_factory(book_id, db)
         
         result, error = process_pdf_file(local_pdf_path, progress_callback)
         
@@ -252,12 +248,12 @@ def cleanup_old_books():
     Periodic task to cleanup old failed/pending books and their S3 files.
     Should be scheduled to run daily.
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime, timezone, timedelta
     
     db = SessionLocal()
     try:
         # Find books older than 7 days in failed/pending state
-        cutoff_date = datetime.utcnow() - timedelta(days=7)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=7)
         
         old_books = db.query(Book).filter(
             Book.created_at < cutoff_date,
@@ -300,7 +296,7 @@ def reset_monthly_quotas():
     db = SessionLocal()
     try:
         users = db.query(User).all()
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         for user in users:
             # Reset based on subscription tier
@@ -309,7 +305,7 @@ def reset_monthly_quotas():
             else:
                 user.ocr_quota_remaining = settings.FREE_TIER_MONTHLY_QUOTA
             
-            user.ocr_quota_reset_date = datetime(now.year, now.month, 1)
+            user.ocr_quota_reset_date = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
         
         db.commit()
         logger.info(f"Reset quotas for {len(users)} users")

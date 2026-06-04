@@ -30,11 +30,20 @@ celery_app.conf.update(
     # Worker configuration
     worker_prefetch_multiplier=1,  # Process one task at a time
     worker_max_tasks_per_child=1000,  # Restart worker after 1000 tasks (prevent memory leak)
-    worker_concurrency=1,  # CRITICAL: Only 1 concurrent task to prevent Tesseract CPU/memory overload
+    worker_concurrency=settings.CELERY_WORKER_CONCURRENCY,  # Use from settings
     # Retry configuration
     task_autoretry_for=(Exception,),
     task_max_retries=3,
     task_default_retry_delay=60,  # Retry after 1 minute
 )
+
+# Try to import worker config if it exists
+try:
+    from worker.config import CELERY_BEAT_SCHEDULE, WORKER_CONFIG
+    celery_app.conf.update(beat_schedule=CELERY_BEAT_SCHEDULE)
+    celery_app.conf.update(WORKER_CONFIG)
+    logger.info("Worker configuration loaded from worker.config")
+except ImportError:
+    logger.warning("worker.config not found, using default celery settings")
 
 logger.info(f"Celery configured with broker: {settings.CELERY_BROKER_URL}")

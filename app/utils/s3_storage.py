@@ -15,16 +15,20 @@ logger = logging.getLogger(__name__)
 
 class S3Storage:
     """S3 storage client for PDF and content management."""
-    
+    _client = None  # Class-level attribute to hold the singleton client
+
     def __init__(self):
-        """Initialize S3 client with AWS credentials."""
-        self.client = boto3.client(
-            "s3",
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_S3_REGION,
-            endpoint_url=settings.AWS_S3_INTERNAL_ENDPOINT_URL,  # For MinIO
-        )
+        """Initialize S3 client with AWS credentials, ensuring singleton pattern."""
+        if S3Storage._client is None:
+            S3Storage._client = boto3.client(
+                "s3",
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_S3_REGION,
+                endpoint_url=settings.AWS_S3_INTERNAL_ENDPOINT_URL,  # For MinIO
+            )
+            logger.info("S3 client initialized.")
+        self.client = S3Storage._client
         self.bucket = settings.AWS_S3_BUCKET
     
     def upload_file(

@@ -3,7 +3,7 @@ Book model for PDF document tracking and processing status.
 Stores metadata about uploaded PDFs and their processing state.
 """
 
-from sqlalchemy import Column, String, Enum, Integer, Float, ForeignKey, Text, Boolean
+from sqlalchemy import Column, String, Enum, Integer, Float, ForeignKey, Text, Boolean, UUID as SQLAlchemyUUID
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel
 import enum
@@ -37,7 +37,7 @@ class Book(BaseModel):
     __tablename__ = "books"
     
     # Foreign key
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(SQLAlchemyUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Book metadata
     title = Column(String(255), nullable=False)
@@ -53,7 +53,7 @@ class Book(BaseModel):
     
     # S3 URLs
     original_pdf_url = Column(String(512), nullable=False)
-    parsed_content_url = Column(String(512), nullable=True)  # JSON with reflowable content
+    parsed_content_url = Column(String(512), nullable=True)
     
     # Error handling
     error_message = Column(Text, nullable=True)
@@ -62,7 +62,7 @@ class Book(BaseModel):
     owner = relationship("User", back_populates="books")
     
     def __repr__(self) -> str:
-        return f"<Book(title={self.title}, status={self.status}, progress={self.progress_percentage}%)>"
+        return f"<Book(id={self.id}, title={self.title}, status={self.status.value})>"
     
     def update_progress(self, processed_pages: int, total_pages: int) -> None:
         """

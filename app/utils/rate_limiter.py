@@ -33,18 +33,17 @@ class RateLimiter:
             True if request is allowed, False if rate limited
         """
         try:
-            # Use pipeline for atomic incr+expire
-            pipe = redis_client.pipeline()
-            pipe.incr(key)
-            pipe.expire(key, window_seconds)
-            results = pipe.execute()
-            current = results[0]
-            
-            return current <= max_requests
+            lua_script = (
+                "local current = redis.call(\'INCR\', KEYS[1]); "
+                "if current == 1 then redis.call(\'EXPIRE\', KEYS[1], ARGV[1]) end; "
+                "return current <= tonumber(ARGV[2])"
+            )
+            result = redis_client.eval(lua_script, 1, key, window_seconds, max_requests)
+            return bool(result)
         except Exception as e:
             logger.error(f"Rate limiter error: {e}")
-            # On error, allow request (fail open)
-            return True
+            # On error, fail-closed for security
+            return False
     
     @staticmethod
     def get_remaining(
@@ -71,7 +70,7 @@ class RateLimiter:
             return remaining
         except Exception as e:
             logger.error(f"Rate limiter error: {e}")
-            return max_requests
+            return 0 # Fail-closed for remaining count as well
     
     @staticmethod
     def reset(key: str) -> None:

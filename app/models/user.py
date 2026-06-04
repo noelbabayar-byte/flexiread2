@@ -49,7 +49,7 @@ class User(BaseModel):
     books = relationship("Book", back_populates="owner", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
-        return f"<User(email={self.email}, plan={self.plan_type})>"
+        return f"<User(id={self.id}, email={self.email}, plan={self.plan_type.value})>"
     
     def has_quota(self, pages_needed: int = 1) -> bool:
         """
@@ -63,12 +63,19 @@ class User(BaseModel):
         """
         return self.ocr_quota_remaining >= pages_needed
     
-    def consume_quota(self, pages_consumed: int) -> None:
+    def consume_quota(self, pages_needed: int) -> bool:
         """
         Consume OCR quota for processed pages.
         
         Args:
-            pages_consumed: Number of pages to deduct from quota
+            pages_needed: Number of pages to deduct from quota
+            
+        Returns:
+            True if quota consumed successfully, False otherwise
         """
-        if self.ocr_quota_remaining >= pages_consumed:
-            self.ocr_quota_remaining -= pages_consumed
+        if not self.has_quota(pages_needed):
+            return False
+        self.ocr_quota_remaining -= pages_needed
+        if self.ocr_quota_remaining < 0:
+            self.ocr_quota_remaining = 0
+        return True
