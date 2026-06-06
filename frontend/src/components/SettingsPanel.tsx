@@ -1,255 +1,208 @@
-/**
- * SettingsPanel Component
- * Manages reading preferences: font size, theme, line height, font family
- * Changes are immediately reflected in the reader via state manager
- */
-
 import React, { useState, useEffect } from 'react';
-import { ReaderStateManager } from '@/reader/state';
-import { ReadingPreferences } from '@/reader/types';
+import { ReaderTheme } from '../reader/types';
 
 interface SettingsPanelProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onPreferenceChange: (preferences: Partial<ReadingPreferences>) => void;
-  stateManager: ReaderStateManager | null;
+    currentTheme: ReaderTheme;
+    currentFontSize: number;
+    currentLineHeight: 'small' | 'medium' | 'large';
+    currentFontFamily: 'serif' | 'sans-serif' | 'monospace';
+    currentImageScale: number;
+    currentFormulaSize: number;
+    onThemeChange: (theme: ReaderTheme) => void;
+    onFontSizeChange: (size: number) => void;
+    onLineHeightChange: (height: 'small' | 'medium' | 'large') => void;
+    onFontFamilyChange: (font: 'serif' | 'sans-serif' | 'monospace') => void;
+    onImageScaleChange: (scale: number) => void;
+    onFormulaSizeChange: (size: number) => void;
+    isOpen: boolean;
+    onClose: () => void;
 }
 
-/**
- * SettingsPanel Component
- */
-export const SettingsPanel: React.FC<SettingsPanelProps> = ({
-  isOpen,
-  onClose,
-  onPreferenceChange,
-  stateManager,
+const SettingsPanel: React.FC<SettingsPanelProps> = ({
+    currentTheme,
+    currentFontSize,
+    currentLineHeight,
+    currentFontFamily,
+    currentImageScale,
+    currentFormulaSize,
+    onThemeChange,
+    onFontSizeChange,
+    onLineHeightChange,
+    onFontFamilyChange,
+    onImageScaleChange,
+    onFormulaSizeChange,
+    isOpen,
+    onClose,
 }) => {
-  const [preferences, setPreferences] = useState<ReadingPreferences | null>(null);
+    const [theme, setTheme] = useState<ReaderTheme>(currentTheme);
+    const [fontSize, setFontSize] = useState<number>(currentFontSize);
+    const [lineHeight, setLineHeight] = useState<'small' | 'medium' | 'large'>(currentLineHeight);
+    const [fontFamily, setFontFamily] = useState<'serif' | 'sans-serif' | 'monospace'>(currentFontFamily);
+    const [imageScale, setImageScale] = useState<number>(currentImageScale);
+    const [formulaSize, setFormulaSize] = useState<number>(currentFormulaSize);
 
-  /**
-   * Load initial preferences from state manager
-   */
-  useEffect(() => {
-    if (stateManager) {
-      const state = stateManager.getState();
-      setPreferences(state.preferences);
+    useEffect(() => {
+        setTheme(currentTheme);
+        setFontSize(currentFontSize);
+        setLineHeight(currentLineHeight);
+        setFontFamily(currentFontFamily);
+        setImageScale(currentImageScale);
+        setFormulaSize(currentFormulaSize);
+    }, [currentTheme, currentFontSize, currentLineHeight, currentFontFamily, currentImageScale, currentFormulaSize]);
+
+    const handleThemeChange = (newTheme: ReaderTheme) => {
+        setTheme(newTheme);
+        onThemeChange(newTheme);
+    };
+
+    const handleFontSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newSize = parseInt(e.target.value);
+        setFontSize(newSize);
+        onFontSizeChange(newSize);
+    };
+
+    const handleLineHeightChange = (newHeight: 'small' | 'medium' | 'large') => {
+        setLineHeight(newHeight);
+        onLineHeightChange(newHeight);
+    };
+
+    const handleFontFamilyChange = (newFont: 'serif' | 'sans-serif' | 'monospace') => {
+        setFontFamily(newFont);
+        onFontFamilyChange(newFont);
+    };
+
+    const handleImageScaleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newScale = parseFloat(e.target.value);
+        setImageScale(newScale);
+        onImageScaleChange(newScale);
+    };
+
+    const handleFormulaSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newSize = parseFloat(e.target.value);
+        setFormulaSize(newSize);
+        onFormulaSizeChange(newSize);
+    };
+
+    if (!isOpen) {
+        return null;
     }
-  }, [stateManager]);
 
-  /**
-   * Handle font size change
-   */
-  const handleFontSizeChange = (size: number) => {
-    if (preferences) {
-      const newPrefs = { ...preferences, fontSize: size };
-      setPreferences(newPrefs);
-      onPreferenceChange({ fontSize: size });
-    }
-  };
+    return (
+        <div className="reader-settings-overlay" onClick={onClose}>
+            <div className="reader-settings-panel" onClick={(e) => e.stopPropagation()}>
+                <div className="reader-settings-header">
+                    <h2>Reading Preferences</h2>
+                    <button className="reader-settings-close" onClick={onClose}>✕</button>
+                </div>
+                <div className="reader-settings-content">
+                    <div className="reader-settings-group">
+                        <label className="reader-settings-label">Font Size</label>
+                        <div className="reader-settings-value">{fontSize}px</div>
+                        <input
+                            type="range"
+                            className="reader-slider"
+                            min="14"
+                            max="28"
+                            value={fontSize}
+                            onChange={handleFontSizeChange}
+                        />
+                        <div className="reader-settings-hint">14px - 28px</div>
+                    </div>
 
-  /**
-   * Handle theme change
-   */
-  const handleThemeChange = (theme: 'light' | 'dark' | 'sepia') => {
-    if (preferences) {
-      const newPrefs = { ...preferences, theme };
-      setPreferences(newPrefs);
-      onPreferenceChange({ theme });
+                    <div className="reader-settings-group">
+                        <label className="reader-settings-label">Theme</label>
+                        <div className="reader-settings-buttons">
+                            {(['light', 'dark', 'sepia'] as const).map((t) => (
+                                <button
+                                    key={t}
+                                    className={`reader-settings-button ${theme === t ? 'active' : ''}`}
+                                    onClick={() => handleThemeChange(t)}
+                                >
+                                    {t === 'light' && '☀️'}
+                                    {t === 'dark' && '🌙'}
+                                    {t === 'sepia' && '📖'}
+                                    <span>{t.charAt(0).toUpperCase() + t.slice(1)}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
-      // Update DOM theme attribute
-      const container = document.querySelector('.reader-container');
-      if (container) {
-        container.setAttribute('data-theme', theme);
-      }
-    }
-  };
+                    <div className="reader-settings-group">
+                        <label className="reader-settings-label">Line Height</label>
+                        <div className="reader-settings-buttons">
+                            {(['small', 'medium', 'large'] as const).map((lh) => (
+                                <button
+                                    key={lh}
+                                    className={`reader-settings-button ${lineHeight === lh ? 'active' : ''}`}
+                                    onClick={() => handleLineHeightChange(lh)}
+                                >
+                                    {lh === 'small' && '↕'}
+                                    {lh === 'medium' && '⟷'}
+                                    {lh === 'large' && '⇕'}
+                                    <span>{lh.charAt(0).toUpperCase() + lh.slice(1)}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
-  /**
-   * Handle line height change
-   */
-  const handleLineHeightChange = (lineHeight: 'small' | 'medium' | 'large') => {
-    if (preferences) {
-      const newPrefs = { ...preferences, lineHeight };
-      setPreferences(newPrefs);
-      onPreferenceChange({ lineHeight });
-    }
-  };
+                    <div className="reader-settings-group">
+                        <label className="reader-settings-label">Font Family</label>
+                        <div className="reader-settings-buttons">
+                            {(['serif', 'sans-serif', 'monospace'] as const).map((font) => (
+                                <button
+                                    key={font}
+                                    className={`reader-settings-button ${fontFamily === font ? 'active' : ''}`}
+                                    onClick={() => handleFontFamilyChange(font)}
+                                    style={{
+                                        fontFamily:
+                                            font === 'serif'
+                                                ? 'Georgia, serif'
+                                                : font === 'sans-serif'
+                                                    ? 'Segoe UI, sans-serif'
+                                                    : 'Courier New, monospace',
+                                    }}
+                                >
+                                    {font === 'serif' && 'Serif'}
+                                    {font === 'sans-serif' && 'Sans'}
+                                    {font === 'monospace' && 'Mono'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
-  /**
-   * Handle font family change
-   */
-  const handleFontFamilyChange = (fontFamily: 'serif' | 'sans-serif' | 'monospace') => {
-    if (preferences) {
-      const newPrefs = { ...preferences, fontFamily };
-      setPreferences(newPrefs);
-      onPreferenceChange({ fontFamily });
-    }
-  };
+                    <div className="reader-settings-group">
+                        <label className="reader-settings-label">Image Scale</label>
+                        <div className="reader-settings-value">{Math.round(imageScale * 100)}%</div>
+                        <input
+                            type="range"
+                            className="reader-slider"
+                            min="0.5"
+                            max="1.5"
+                            step="0.1"
+                            value={imageScale}
+                            onChange={handleImageScaleChange}
+                        />
+                        <div className="reader-settings-hint">50% - 150%</div>
+                    </div>
 
-  /**
-   * Handle image scale change
-   */
-  const handleImageScaleChange = (scale: number) => {
-    if (preferences) {
-      const newPrefs = { ...preferences, imageScale: scale };
-      setPreferences(newPrefs);
-      onPreferenceChange({ imageScale: scale });
-    }
-  };
-
-  /**
-   * Handle formula size change
-   */
-  const handleFormulaSizeChange = (size: number) => {
-    if (preferences) {
-      const newPrefs = { ...preferences, formulaSize: size };
-      setPreferences(newPrefs);
-      onPreferenceChange({ formulaSize: size });
-    }
-  };
-
-  if (!isOpen || !preferences) {
-    return null;
-  }
-
-  return (
-    <div className="reader-settings-overlay" onClick={onClose}>
-      <div
-        className="reader-settings-panel"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="reader-settings-header">
-          <h2>Reading Preferences</h2>
-          <button className="reader-settings-close" onClick={onClose}>
-            ✕
-          </button>
+                    <div className="reader-settings-group">
+                        <label className="reader-settings-label">Formula Size</label>
+                        <div className="reader-settings-value">{Math.round(formulaSize * 100)}%</div>
+                        <input
+                            type="range"
+                            className="reader-slider"
+                            min="0.8"
+                            max="1.2"
+                            step="0.1"
+                            value={formulaSize}
+                            onChange={handleFormulaSizeChange}
+                        />
+                        <div className="reader-settings-hint">80% - 120%</div>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <div className="reader-settings-content">
-          {/* Font Size */}
-          <div className="reader-settings-group">
-            <label className="reader-settings-label">Font Size</label>
-            <div className="reader-settings-value">{preferences.fontSize}px</div>
-            <input
-              type="range"
-              className="reader-slider"
-              min="14"
-              max="28"
-              value={preferences.fontSize}
-              onChange={(e) => handleFontSizeChange(parseInt(e.target.value))}
-            />
-            <div className="reader-settings-hint">14px - 28px</div>
-          </div>
-
-          {/* Theme */}
-          <div className="reader-settings-group">
-            <label className="reader-settings-label">Theme</label>
-            <div className="reader-settings-buttons">
-              {(['light', 'dark', 'sepia'] as const).map((theme) => (
-                <button
-                  key={theme}
-                  className={`reader-settings-button ${
-                    preferences.theme === theme ? 'active' : ''
-                  }`}
-                  onClick={() => handleThemeChange(theme)}
-                >
-                  {theme === 'light' && '☀️'}
-                  {theme === 'dark' && '🌙'}
-                  {theme === 'sepia' && '📖'}
-                  <span>{theme.charAt(0).toUpperCase() + theme.slice(1)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Line Height */}
-          <div className="reader-settings-group">
-            <label className="reader-settings-label">Line Height</label>
-            <div className="reader-settings-buttons">
-              {(['small', 'medium', 'large'] as const).map((lh) => (
-                <button
-                  key={lh}
-                  className={`reader-settings-button ${
-                    preferences.lineHeight === lh ? 'active' : ''
-                  }`}
-                  onClick={() => handleLineHeightChange(lh)}
-                >
-                  {lh === 'small' && '↕'}
-                  {lh === 'medium' && '⟷'}
-                  {lh === 'large' && '⇕'}
-                  <span>{lh.charAt(0).toUpperCase() + lh.slice(1)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Font Family */}
-          <div className="reader-settings-group">
-            <label className="reader-settings-label">Font Family</label>
-            <div className="reader-settings-buttons">
-              {(['serif', 'sans-serif', 'monospace'] as const).map((font) => (
-                <button
-                  key={font}
-                  className={`reader-settings-button ${
-                    preferences.fontFamily === font ? 'active' : ''
-                  }`}
-                  onClick={() => handleFontFamilyChange(font)}
-                  style={{
-                    fontFamily:
-                      font === 'serif'
-                        ? 'Georgia, serif'
-                        : font === 'sans-serif'
-                          ? 'Segoe UI, sans-serif'
-                          : 'Courier New, monospace',
-                  }}
-                >
-                  {font === 'serif' && 'Serif'}
-                  {font === 'sans-serif' && 'Sans'}
-                  {font === 'monospace' && 'Mono'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Image Scale */}
-          <div className="reader-settings-group">
-            <label className="reader-settings-label">Image Scale</label>
-            <div className="reader-settings-value">
-              {Math.round((preferences.imageScale || 1) * 100)}%
-            </div>
-            <input
-              type="range"
-              className="reader-slider"
-              min="0.5"
-              max="1.5"
-              step="0.1"
-              value={preferences.imageScale || 1}
-              onChange={(e) => handleImageScaleChange(parseFloat(e.target.value))}
-            />
-            <div className="reader-settings-hint">50% - 150%</div>
-          </div>
-
-          {/* Formula Size */}
-          <div className="reader-settings-group">
-            <label className="reader-settings-label">Formula Size</label>
-            <div className="reader-settings-value">
-              {Math.round((preferences.formulaSize || 1) * 100)}%
-            </div>
-            <input
-              type="range"
-              className="reader-slider"
-              min="0.8"
-              max="1.2"
-              step="0.1"
-              value={preferences.formulaSize || 1}
-              onChange={(e) => handleFormulaSizeChange(parseFloat(e.target.value))}
-            />
-            <div className="reader-settings-hint">80% - 120%</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default SettingsPanel;

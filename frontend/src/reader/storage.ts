@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
 };
 
 const DB_NAME = 'flexiread-db';
+const DB_VERSION = 1;
 const STORE_NAME = 'books';
 
 export class ReaderStorage {
@@ -86,9 +87,9 @@ export class ReaderStorage {
    */
   static async initDB(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, 1);
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-      request.onerror = () => reject(request.error);
+      request.onerror = () => reject(new Error(`IndexedDB error: ${request.error?.message}`));
       request.onsuccess = () => resolve(request.result);
 
       request.onupgradeneeded = (event) => {
@@ -178,11 +179,12 @@ export class ReaderStorage {
 export function createDebouncedProgressSaver(
   delay: number = 2000
 ): (bookId: string, progress: ReadingProgress) => void {
-  const timers = new Map<string, NodeJS.Timeout>();
+  const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
   return (bookId: string, progress: ReadingProgress) => {
-    if (timers.has(bookId)) {
-      clearTimeout(timers.get(bookId)!);
+    const existingTimer = timers.get(bookId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
     }
 
     const timer = setTimeout(() => {

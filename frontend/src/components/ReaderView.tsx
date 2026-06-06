@@ -12,7 +12,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { ReaderEngine, initializeEngine, getEngine } from '@/reader/engine';
 import { ReaderStateManager, initializeStateManager, getStateManager } from '@/reader/state';
-import { BookContent, PageData } from '@/reader/types';
+import { BookContent, PageData, ReadingPreferences } from '@/reader/types';
 import SettingsPanel from './SettingsPanel';
 import TableOfContents from './TableOfContents';
 import '@/reader/styles.css';
@@ -40,6 +40,14 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showTOC, setShowTOC] = useState(false);
+  const [preferences, setPreferences] = useState<ReadingPreferences>({
+    fontSize: 16,
+    theme: 'light',
+    lineHeight: 'medium',
+    fontFamily: 'serif',
+    imageScale: 1,
+    formulaSize: 1,
+  });
 
   /**
    * Initialize Engine and State Manager
@@ -53,6 +61,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       const stateManager = initializeStateManager(bookId);
       stateManager.setBookContent(bookContent);
       stateManagerRef.current = stateManager;
+      setPreferences(stateManager.getState().preferences);
 
       // Initialize engine (Vanilla DOM controller)
       const engine = initializeEngine('.reader-container');
@@ -83,6 +92,11 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         }
       });
 
+      // Listen to preference changes to update local state
+      stateManager.onPreferenceChange((newPrefs) => {
+        setPreferences(newPrefs);
+      });
+
       setIsInitialized(true);
       setIsLoading(false);
     } catch (err) {
@@ -103,28 +117,9 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   /**
    * Handle settings panel changes
    */
-  const handlePreferenceChange = (preferences: any) => {
+  const handlePreferenceChange = (newPrefs: Partial<ReadingPreferences>) => {
     if (stateManagerRef.current) {
-      stateManagerRef.current.updatePreferences(preferences);
-    }
-  };
-
-  /**
-   * Handle TOC section click
-   */
-  const handleSectionClick = (sectionId: string) => {
-    if (engineRef.current) {
-      engineRef.current.scrollToBlock(sectionId, true);
-      setShowTOC(false);
-    }
-  };
-
-  /**
-   * Handle page navigation
-   */
-  const handleGoToPage = (pageNumber: number) => {
-    if (engineRef.current) {
-      engineRef.current.scrollToPage(pageNumber, true);
+      stateManagerRef.current.updatePreferences(newPrefs);
     }
   };
 
@@ -152,7 +147,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       <div
         ref={readerContainerRef}
         className="reader-container"
-        data-theme="light"
+        data-theme={preferences.theme}
       >
         <div className="reader-content">
           {/* Engine renders pages here */}
@@ -166,16 +161,24 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       <SettingsPanel
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
-        onPreferenceChange={handlePreferenceChange}
-        stateManager={stateManagerRef.current}
+        currentTheme={preferences.theme}
+        currentFontSize={preferences.fontSize}
+        currentLineHeight={preferences.lineHeight}
+        currentFontFamily={preferences.fontFamily}
+        currentImageScale={preferences.imageScale || 1}
+        currentFormulaSize={preferences.formulaSize || 1}
+        onThemeChange={(theme) => handlePreferenceChange({ theme })}
+        onFontSizeChange={(fontSize) => handlePreferenceChange({ fontSize })}
+        onLineHeightChange={(lineHeight) => handlePreferenceChange({ lineHeight })}
+        onFontFamilyChange={(fontFamily) => handlePreferenceChange({ fontFamily })}
+        onImageScaleChange={(imageScale) => handlePreferenceChange({ imageScale })}
+        onFormulaSizeChange={(formulaSize) => handlePreferenceChange({ formulaSize })}
       />
 
       {/* Table of Contents - React component */}
       <TableOfContents
         isOpen={showTOC}
         onClose={() => setShowTOC(false)}
-        onSectionClick={handleSectionClick}
-        onPageClick={handleGoToPage}
         bookContent={bookContent}
       />
 

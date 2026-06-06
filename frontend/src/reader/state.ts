@@ -9,7 +9,6 @@ import {
   ReadingPreferences,
   ReadingProgress,
   BookContent,
-  VirtualScrollState,
 } from './types';
 import { ReaderStorage } from './storage';
 
@@ -41,7 +40,7 @@ export class ReaderStateManager {
     const defaultProgress: ReadingProgress = {
       bookId,
       currentPageNumber: 1,
-      currentParagraphIndex: 0,
+      currentBlockIndex: 0,
       scrollPosition: 0,
       lastUpdated: Date.now(),
     };
@@ -64,9 +63,10 @@ export class ReaderStateManager {
 
   /**
    * Get current state
+   * Deep copy to prevent external mutation
    */
   getState(): ReaderState {
-    return { ...this.state };
+    return JSON.parse(JSON.stringify(this.state));
   }
 
   /**
@@ -115,6 +115,8 @@ export class ReaderStateManager {
    * Called when user scrolls and pages need to be loaded/unloaded
    */
   updateVirtualScroll(startPageIndex: number, endPageIndex: number): void {
+    if (this.state.virtualScroll.totalPages <= 0) return;
+
     this.state.virtualScroll = {
       ...this.state.virtualScroll,
       startPageIndex: Math.max(0, startPageIndex),
@@ -150,7 +152,7 @@ export class ReaderStateManager {
     this.state.progress = {
       ...this.state.progress,
       currentPageNumber: 1,
-      currentParagraphIndex: 0,
+      currentBlockIndex: 0,
       scrollPosition: 0,
       lastUpdated: Date.now(),
     };

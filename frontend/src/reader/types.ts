@@ -8,6 +8,8 @@
  */
 export type ContentBlockType = 'text' | 'image' | 'formula' | 'question';
 
+export type ReaderTheme = 'light' | 'dark' | 'sepia';
+
 /**
  * Modular content block
  * Replaces simple string paragraphs

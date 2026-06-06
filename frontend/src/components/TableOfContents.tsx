@@ -1,44 +1,28 @@
-/**
- * TableOfContents Component
- * Displays book sections and allows navigation
- * Supports hierarchical sections (chapters, sections, subsections)
- */
-
-import React, { useMemo } from 'react';
-import { BookContent, Section } from '@/reader/types';
+import React, { useMemo, useState, useEffect } from 'react';
+import { BookContent, Section } from '../reader/types';
+import { getEngine } from '../reader/engine';
 
 interface TableOfContentsProps {
   isOpen: boolean;
   onClose: () => void;
-  onSectionClick: (sectionId: string) => void;
-  onPageClick: (pageNumber: number) => void;
   bookContent: BookContent;
 }
 
-/**
- * TableOfContents Component
- */
-export const TableOfContents: React.FC<TableOfContentsProps> = ({
+const TableOfContents: React.FC<TableOfContentsProps> = ({
   isOpen,
   onClose,
-  onSectionClick,
-  onPageClick,
   bookContent,
 }) => {
-  /**
-   * Generate sections if not provided
-   * Fallback: create sections from pages
-   */
+  const [goToPageInput, setGoToPageInput] = useState('');
+
   const sections = useMemo(() => {
     if (bookContent.sections && bookContent.sections.length > 0) {
       return bookContent.sections;
     }
 
-    // Fallback: create simple sections from pages
     const fallbackSections: Section[] = [];
     bookContent.pages.forEach((page, idx) => {
       if (idx % 10 === 0) {
-        // Create a section every 10 pages
         fallbackSections.push({
           id: `page-${page.page_number}`,
           title: `Page ${page.page_number}`,
@@ -62,25 +46,38 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
         ];
   }, [bookContent]);
 
-  /**
-   * Group sections by level for hierarchical display
-   */
-  const groupedSections = useMemo(() => {
-    const groups: { [key: number]: Section[] } = {};
-
-    sections.forEach((section) => {
-      if (!groups[section.level]) {
-        groups[section.level] = [];
+  const handleSectionClick = (section: Section) => {
+    const engine = getEngine();
+    if (engine) {
+      // Prioritize blockId if available and valid, otherwise use pageNumber
+      if (section.startBlockIndex !== undefined && section.startBlockIndex !== null) {
+        const blockId = bookContent.pages[section.startPageNumber - 1]?.blocks[section.startBlockIndex]?.id;
+        if (blockId) {
+          engine.scrollToBlock(blockId, true);
+        } else {
+          engine.scrollToPage(section.startPageNumber, true);
+        }
+      } else {
+        engine.scrollToPage(section.startPageNumber, true);
       }
-      groups[section.level].push(section);
-    });
+    }
+    onClose();
+  };
 
-    return groups;
-  }, [sections]);
+  const handleGoToPage = () => {
+    const pageNum = parseInt(goToPageInput);
+    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= bookContent.total_pages) {
+      const engine = getEngine();
+      if (engine) {
+        engine.scrollToPage(pageNum, true);
+      }
+      setGoToPageInput('');
+      onClose();
+    } else {
+      alert(`Please enter a valid page number between 1 and ${bookContent.total_pages}`);
+    }
+  };
 
-  /**
-   * Render section item
-   */
   const renderSectionItem = (section: Section) => {
     const paddingLeft = `${(section.level - 1) * 1.5}rem`;
 
@@ -92,10 +89,7 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
       >
         <button
           className="reader-toc-link"
-          onClick={() => {
-            onSectionClick(section.id);
-            onPageClick(section.startPageNumber);
-          }}
+          onClick={() => handleSectionClick(section)}
         >
           <span className="reader-toc-title">{section.title}</span>
           <span className="reader-toc-page">p. {section.startPageNumber}</span>
@@ -128,7 +122,6 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
             </div>
           ) : (
             <div className="reader-toc-list">
-              {/* Book metadata */}
               {bookContent.metadata && (
                 <div className="reader-toc-metadata">
                   <h3>{bookContent.metadata.title}</h3>
@@ -145,10 +138,8 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
                 </div>
               )}
 
-              {/* Sections */}
               {sections.map((section) => renderSectionItem(section))}
 
-              {/* Quick page navigation */}
               <div className="reader-toc-divider" />
               <div className="reader-toc-quick-nav">
                 <label className="reader-toc-label">Go to page:</label>
@@ -158,16 +149,15 @@ export const TableOfContents: React.FC<TableOfContentsProps> = ({
                   min="1"
                   max={bookContent.total_pages}
                   placeholder="Page number"
+                  value={goToPageInput}
+                  onChange={(e) => setGoToPageInput(e.target.value)}
                   onKeyPress={(e) => {
                     if (e.key === 'Enter') {
-                      const pageNum = parseInt(e.currentTarget.value);
-                      if (pageNum >= 1 && pageNum <= bookContent.total_pages) {
-                        onPageClick(pageNum);
-                        e.currentTarget.value = '';
-                      }
+                      handleGoToPage();
                     }
                   }}
                 />
+                <button onClick={handleGoToPage} className="reader-toc-go-btn">Go</button>
               </div>
             </div>
           )}

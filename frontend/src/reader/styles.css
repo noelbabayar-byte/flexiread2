@@ -51,16 +51,28 @@
 
   background-color: var(--reader-bg-light);
   color: var(--reader-text-light);
+  --reader-bg: var(--reader-bg-light);
+  --reader-text: var(--reader-text-light);
+  --reader-border: var(--reader-border-light);
+  --reader-accent: var(--reader-accent-light);
 }
 
 .reader-container[data-theme='dark'] {
   background-color: var(--reader-bg-dark);
   color: var(--reader-text-dark);
+  --reader-bg: var(--reader-bg-dark);
+  --reader-text: var(--reader-text-dark);
+  --reader-border: var(--reader-border-dark);
+  --reader-accent: var(--reader-accent-dark);
 }
 
 .reader-container[data-theme='sepia'] {
   background-color: var(--reader-bg-sepia);
   color: var(--reader-text-sepia);
+  --reader-bg: var(--reader-bg-sepia);
+  --reader-text: var(--reader-text-sepia);
+  --reader-border: var(--reader-border-sepia);
+  --reader-accent: var(--reader-accent-sepia);
 }
 
 /**

@@ -5,10 +5,11 @@
  */
 
 import { getStateManager } from './state';
-import { ReaderStorage, createDebouncedProgressSaver } from './storage';
+import { createDebouncedProgressSaver } from './storage';
 import { VisibleBlockEntry, ContentBlock, PageData } from './types';
 
-const BUFFER_SIZE = 3;
+// Global engine instance to allow cleanup
+let engineInstance: ReaderEngine | null = null;
 
 /**
  * Reader Engine with ContentBlock support
@@ -33,6 +34,7 @@ export class ReaderEngine {
     this.setupIntersectionObserver();
     this.setupResizeObserver();
     this.setupScrollListener();
+    engineInstance = this;
   }
 
   /**
@@ -41,7 +43,7 @@ export class ReaderEngine {
   async initialize(): Promise<void> {
     this.restoreScrollPosition();
 
-    this.stateManager.onStateChange((state) => {
+    this.stateManager.onStateChange(() => {
       this.updateVirtualScroll();
     });
 
@@ -122,14 +124,31 @@ export class ReaderEngine {
     element.className = 'reader-image-block';
 
     const img = document.createElement('img');
-    img.src = block.content; // S3 URL
+    
+    // URL validation
+    try {
+        const url = new URL(block.content);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+            throw new Error('Invalid protocol');
+        }
+        img.src = block.content;
+    } catch {
+        img.src = '/placeholder-image.png';
+    }
+
     img.alt = `Image from page ${pageNumber}`;
     img.className = 'reader-image';
+    img.loading = 'lazy';
 
     // Apply image scale preference
     const preferences = this.stateManager.getState().preferences;
     const scale = preferences.imageScale || 1;
     img.style.maxWidth = `${100 * scale}%`;
+
+    // Error handling
+    img.onerror = () => {
+        img.src = '/placeholder-image.png';
+    };
 
     element.appendChild(img);
     return element;
@@ -148,19 +167,31 @@ export class ReaderEngine {
 
     const formula = document.createElement('div');
     formula.className = 'reader-formula';
-    formula.textContent = block.content; // LaTeX string
+    
+    // XSS koruması - textContent kullan
+    formula.textContent = block.content;
+
+    // MathJax veya KaTeX entegrasyonu
+    const win = window as any;
+    if (win.MathJax) {
+        formula.innerHTML = `\\(${block.content}\\)`;
+        win.MathJax.typesetPromise([formula]).catch((err: Error) => {
+            console.error('MathJax rendering failed:', err);
+            formula.textContent = block.content;
+        });
+    } else if (win.katex) {
+        try {
+            win.katex.render(block.content, formula, { throwOnError: false });
+        } catch (e) {
+            console.error('KaTeX rendering failed:', e);
+            formula.textContent = block.content;
+        }
+    }
 
     // Apply formula size preference
     const preferences = this.stateManager.getState().preferences;
     const formulaSize = preferences.formulaSize || 1;
     formula.style.fontSize = `${100 * formulaSize}%`;
-
-    // TODO: Integrate MathJax or KaTeX for rendering
-    // For now, show as code block
-    formula.style.fontFamily = 'monospace';
-    formula.style.backgroundColor = 'rgba(0,0,0,0.05)';
-    formula.style.padding = '0.5em';
-    formula.style.borderRadius = '4px';
 
     element.appendChild(formula);
     return element;
@@ -247,7 +278,7 @@ export class ReaderEngine {
           scrollPosition: this.calculateScrollPercentage(),
         });
       }
-    });
+    }, options);
   }
 
   /**
@@ -256,9 +287,9 @@ export class ReaderEngine {
   private setupResizeObserver(): void {
     this.resizeObserver = new ResizeObserver(() => {
       if (!this.isRestoring) {
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           this.restoreScrollPosition();
-        }, 100);
+        });
       }
     });
 
@@ -269,7 +300,7 @@ export class ReaderEngine {
    * Setup scroll listener
    */
   private setupScrollListener(): void {
-    let scrollTimeout: NodeJS.Timeout | null = null;
+    let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
 
     this.container.addEventListener('scroll', () => {
       if (scrollTimeout) clearTimeout(scrollTimeout);
@@ -291,7 +322,8 @@ export class ReaderEngine {
     const containerHeight = this.container.clientHeight;
     const totalHeight = this.container.scrollHeight;
 
-    const scrollPercentage = scrollTop / (totalHeight - containerHeight);
+    const scrollableHeight = Math.max(1, totalHeight - containerHeight);
+    const scrollPercentage = scrollTop / scrollableHeight;
     const estimatedPageIndex = Math.floor(
       scrollPercentage * state.bookContent.total_pages
     );
@@ -322,6 +354,11 @@ export class ReaderEngine {
         const blockId = block.getAttribute('data-block-id');
         if (blockId) {
           this.blockRegistry.delete(blockId);
+          this.visibleBlocks.delete(blockId);
+        }
+        // IntersectionObserver'dan unobserve et
+        if (this.intersectionObserver) {
+          this.intersectionObserver.unobserve(block);
         }
         block.remove();
       }
@@ -337,24 +374,22 @@ export class ReaderEngine {
     const state = this.stateManager.getState();
     const { currentPageNumber, currentBlockIndex } = state.progress;
 
-    const targetElement = this.container.querySelector(
-      `[data-page-number="${currentPageNumber}"][data-block-index="${currentBlockIndex}"]`
-    );
+    requestAnimationFrame(() => {
+        const targetElement = this.container.querySelector(
+          `[data-page-number="${currentPageNumber}"][data-block-index="${currentBlockIndex}"]`
+        );
 
-    if (targetElement) {
-      targetElement.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-
-      console.debug(
-        `Restored scroll to page ${currentPageNumber}, block ${currentBlockIndex}`
-      );
-    }
-
-    setTimeout(() => {
-      this.isRestoring = false;
-    }, 500);
+        if (targetElement) {
+          targetElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          });
+        }
+        
+        requestAnimationFrame(() => {
+            this.isRestoring = false;
+        });
+    });
   }
 
   /**
@@ -364,13 +399,13 @@ export class ReaderEngine {
     const state = this.stateManager.getState();
     const { fontSize, theme, lineHeight, fontFamily } = state.preferences;
 
-    const lineHeightMap = {
+    const lineHeightMap: Record<string, string> = {
       small: '1.4',
       medium: '1.6',
       large: '1.8',
     };
 
-    const fontFamilyMap = {
+    const fontFamilyMap: Record<string, string> = {
       serif: '"Georgia", serif',
       'sans-serif': '"Segoe UI", sans-serif',
       monospace: '"Courier New", monospace',
@@ -379,11 +414,11 @@ export class ReaderEngine {
     this.container.style.setProperty('--reader-font-size', `${fontSize}px`);
     this.container.style.setProperty(
       '--reader-line-height',
-      lineHeightMap[lineHeight]
+      lineHeightMap[lineHeight] || '1.6'
     );
     this.container.style.setProperty(
       '--reader-font-family',
-      fontFamilyMap[fontFamily]
+      fontFamilyMap[fontFamily] || '"Segoe UI", sans-serif'
     );
     this.container.style.setProperty('--reader-theme', theme);
   }
@@ -396,8 +431,9 @@ export class ReaderEngine {
     const containerHeight = this.container.clientHeight;
     const totalHeight = this.container.scrollHeight;
 
-    const scrollableHeight = totalHeight - containerHeight;
-    return scrollableHeight > 0 ? (scrollTop / scrollableHeight) * 100 : 0;
+    const scrollableHeight = Math.max(0, totalHeight - containerHeight);
+    if (scrollableHeight === 0) return 0;
+    return Math.min(100, Math.max(0, (scrollTop / scrollableHeight) * 100));
   }
 
   /**
@@ -423,17 +459,21 @@ export class ReaderEngine {
    * Used by TableOfContents
    */
   scrollToBlock(blockId: string, smooth: boolean = true): void {
-    const element = this.blockRegistry.get(blockId);
+    let element = this.blockRegistry.get(blockId);
+    if (!element || !element.isConnected) {
+        element = this.container.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement;
+        if (element) {
+            this.blockRegistry.set(blockId, element);
+        }
+    }
 
-    if (element) {
+    if (element && element.isConnected) {
       element.scrollIntoView({
         behavior: smooth ? 'smooth' : 'auto',
         block: 'start',
       });
-
-      console.debug(`Scrolled to block: ${blockId}`);
     } else {
-      console.warn(`Block not found: ${blockId}`);
+      console.warn(`Block not found or not in DOM: ${blockId}`);
     }
   }
 
@@ -450,8 +490,6 @@ export class ReaderEngine {
         behavior: smooth ? 'smooth' : 'auto',
         block: 'start',
       });
-
-      console.debug(`Scrolled to page: ${pageNumber}`);
     }
   }
 
@@ -467,19 +505,19 @@ export class ReaderEngine {
       pageElement.className = 'reader-page';
       pageElement.dataset.pageNumber = page.page_number.toString();
 
+      const blockElements: HTMLElement[] = [];
       page.blocks.forEach((block, blockIndex) => {
         const blockElement = this.renderContentBlock(
           block,
           page.page_number,
           blockIndex
         );
-
-        // Observe for visibility tracking
-        this.observeBlock(blockElement);
-
+        blockElements.push(blockElement);
         pageElement.appendChild(blockElement);
       });
 
+      // DOM'a eklendikten sonra observe et
+      blockElements.forEach(el => this.observeBlock(el));
       elements.push(pageElement);
     });
 
@@ -500,27 +538,23 @@ export class ReaderEngine {
   destroy(): void {
     if (this.intersectionObserver) {
       this.intersectionObserver.disconnect();
+      this.intersectionObserver = null;
     }
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
+      this.resizeObserver = null;
     }
     this.blockRegistry.clear();
+    this.visibleBlocks.clear();
+    this.mostVisibleBlock = null;
+    engineInstance = null;
   }
 }
-
-/**
- * Global engine instance
- */
-let engine: ReaderEngine | null = null;
 
 export function initializeEngine(containerSelector: string): ReaderEngine {
-  engine = new ReaderEngine(containerSelector);
-  return engine;
+  return new ReaderEngine(containerSelector);
 }
 
-export function getEngine(): ReaderEngine {
-  if (!engine) {
-    throw new Error('Engine not initialized. Call initializeEngine first.');
-  }
-  return engine;
+export function getEngine(): ReaderEngine | null {
+  return engineInstance;
 }
