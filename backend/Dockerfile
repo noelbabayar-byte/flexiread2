@@ -13,30 +13,21 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends gnupg dirmngr curl && \
-    # Eksik olan 0E98404D386FA1D9 anahtarını Ubuntu anahtar sunucusundan çekip APT anahtarlığına ekliyoruz
-    (apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9 || \
-     apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 0E98404D386FA1D9 || \
-     echo "GPG key import failed, continuing with unauthenticated fallback...") && \
-    # Alternatif olarak APT\'nin imza kontrolünü bu aşamada esnetmek için ayar yapıyoruz
-    echo "Acquire::AllowInsecureRepositories \"true\";" > /etc/apt/apt.conf.d/99allow-insecure && \
-    echo "Acquire::AllowUnauthenticated \"true\";" >> /etc/apt/apt.conf.d/99allow-insecure && \
-    # Sistem paketlerini kuruyoruz
-    apt-get update && apt-get install -y --no-install-recommends \
-    --allow-unauthenticated \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    gnupg \
+    wget \
+    git \
     build-essential \
     libpq-dev \
     tesseract-ocr \
     libtesseract-dev \
-    poppler-utils \
-    git \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -f /etc/apt/apt.conf.d/99allow-insecure
+    && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /app
 
-# Copy requirements
+# Copy requirements from root
 COPY requirements.txt .
 
 # Install Python dependencies
@@ -62,15 +53,16 @@ RUN pip install \
 # Copy application code
 COPY . .
 
-# Create non-root user (optional but recommended)
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser && \
+    chown -R appuser:appuser /app
 USER appuser
 
 # Health check
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Default command (can be overridden)
+# Default command
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # ============================================================================
@@ -85,14 +77,15 @@ RUN pip install gunicorn
 COPY . .
 
 # Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+RUN groupadd -r appuser && useradd -r -g appuser appuser && \
+    chown -R appuser:appuser /app
 USER appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Production command (gunicorn + uvicorn workers)
+# Production command
 CMD ["gunicorn", \
      "app.main:app", \
      "--workers", "4", \

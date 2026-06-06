@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      target: development
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DEBUG: "True"
+      APP_ENV: development
+      LOG_LEVEL: DEBUG
+
+  worker:
+    build:
+      target: development
+    volumes:
+      - .:/app
+      - /app/__pycache__
+      - ./uploads:/app/uploads
+    environment:
+      DEBUG: "True"
+      APP_ENV: development
+      LOG_LEVEL: DEBUG
+
+  frontend:
+    build:
+      target: development
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    command: pnpm dev --host 0.0.0.0
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: http://localhost:8000

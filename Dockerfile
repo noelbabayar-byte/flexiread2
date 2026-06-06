@@ -17,16 +17,15 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     gnupg \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Install core dependencies
+# Install core dependencies (poppler-utils removed as PyMuPDF handles PDF rendering)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     tesseract-ocr \
     libtesseract-dev \
-    poppler-utils \
-    curl \
     git \
     && rm -rf /var/lib/apt/lists/*
 
@@ -60,13 +59,14 @@ RUN pip install \
 COPY app/ ./app/
 COPY worker/ ./worker/
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Create non-root user (After tesseract installation)
+RUN groupadd -r appuser && useradd -r -g appuser appuser && \
+    chown -R appuser:appuser /app
 USER appuser
 
-# Health check
+# Health check using python urllib
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 # Default command (can be overridden)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
@@ -84,12 +84,13 @@ COPY app/ ./app/
 COPY worker/ ./worker/
 
 # Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+RUN groupadd -r appuser && useradd -r -g appuser appuser && \
+    chown -R appuser:appuser /app
 USER appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 # Production command (gunicorn + uvicorn workers)
 CMD ["gunicorn", \

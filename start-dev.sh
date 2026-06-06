@@ -69,19 +69,15 @@ fi
 
 echo -e "${GREEN}✓ Docker is installed${NC}"
 
-# Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null; then
-  echo -e "${RED}✗ Docker Compose is not installed. Please install Docker Compose first.${NC}"
-  exit 1
-fi
-
-echo -e "${GREEN}✓ Docker Compose is installed${NC}"
-
 # Check if .env file exists
 if [ ! -f .env ]; then
-  echo -e "${YELLOW}⚠ .env file not found. Creating from .env.example${NC}"
-  cp .env.example .env
-  echo -e "${GREEN}✓ Created .env file${NC}"
+  echo -e "${YELLOW}⚠ .env file not found. Attempting to create from .env.example${NC}"
+  if [ -f .env.example ]; then
+    cp .env.example .env
+    echo -e "${GREEN}✓ Created .env file${NC}"
+  else
+    echo -e "${YELLOW}⚠ .env.example not found. Please create .env file manually.${NC}"
+  fi
 fi
 
 echo ""
@@ -89,7 +85,7 @@ echo ""
 # Clean if requested
 if [ "$CLEAN" = true ]; then
   echo -e "${YELLOW}Cleaning up Docker resources...${NC}"
-  docker-compose down -v
+  docker compose down -v
   echo -e "${GREEN}✓ Cleaned up${NC}"
   echo ""
 fi
@@ -97,14 +93,14 @@ fi
 # Build if requested
 if [ "$BUILD" = true ]; then
   echo -e "${YELLOW}Building Docker images...${NC}"
-  docker-compose build --no-cache
+  docker compose build --no-cache
   echo -e "${GREEN}✓ Build complete${NC}"
   echo ""
 fi
 
 # Start services
 echo -e "${YELLOW}Starting services...${NC}"
-docker-compose up -d
+docker compose up -d
 
 # Wait for services to be healthy
 echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
@@ -116,13 +112,14 @@ ATTEMPT=0
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
   ATTEMPT=$((ATTEMPT + 1))
   
-  # Check each service
-  DB_HEALTH=$(docker-compose ps db | grep "healthy" | wc -l)
-  REDIS_HEALTH=$(docker-compose ps redis | grep "healthy" | wc -l)
-  API_HEALTH=$(docker-compose ps api | grep "healthy" | wc -l)
+  # Check if all services are running and healthy using JSON format for reliable parsing
+  RUNNING_COUNT=$(docker compose ps --format json | grep -c '"State": "running"')
+  HEALTHY_COUNT=$(docker compose ps --format json | grep -c '"Health": "healthy"')
   
-  if [ $DB_HEALTH -eq 1 ] && [ $REDIS_HEALTH -eq 1 ] && [ $API_HEALTH -eq 1 ]; then
-    echo -e "${GREEN}✓ All services are healthy${NC}"
+  # Total services expected: db, redis, minio, api, worker, frontend (6)
+  # minio-init is a one-shot service, so we don't count it as "running" long term
+  if [ $RUNNING_COUNT -ge 5 ] && [ $HEALTHY_COUNT -ge 3 ]; then
+    echo -e "${GREEN}✓ Services are coming online and healthy${NC}"
     break
   fi
   
@@ -133,15 +130,15 @@ done
 echo ""
 echo ""
 
-# Check if all services started successfully
-if docker-compose ps | grep -q "Exit"; then
-  echo -e "${RED}✗ Some services failed to start${NC}"
-  echo ""
-  echo "Service status:"
-  docker-compose ps
-  echo ""
-  echo "Check logs with: docker-compose logs -f"
-  exit 1
+# Check if any service failed
+if docker compose ps --format json | grep -q '"State": "exited"'; then
+  # minio-init is expected to exit with 0
+  EXITED_SERVICES=$(docker compose ps --format json | grep '"State": "exited"' | grep -v "minio-init")
+  if [ ! -z "$EXITED_SERVICES" ]; then
+    echo -e "${RED}✗ Some services failed to start${NC}"
+    docker compose ps
+    exit 1
+  fi
 fi
 
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
@@ -157,22 +154,16 @@ echo -e "${BLUE}API Docs:${NC}        http://localhost:8000/docs"
 echo -e "${BLUE}MinIO Console:${NC}   http://localhost:9001"
 echo ""
 
-echo "Default credentials:"
-echo -e "${BLUE}MinIO:${NC}          minioadmin / minioadmin"
-echo -e "${BLUE}Database:${NC}       flexiread / flexiread_dev_password"
-echo -e "${BLUE}Redis:${NC}          (password: flexiread_redis_dev)"
-echo ""
-
 echo "Useful commands:"
-echo -e "${BLUE}View logs:${NC}      docker-compose logs -f"
-echo -e "${BLUE}Stop services:${NC}  docker-compose stop"
-echo -e "${BLUE}Restart:${NC}        docker-compose restart"
-echo -e "${BLUE}Shell (API):${NC}    docker-compose exec api bash"
+echo -e "${BLUE}View logs:${NC}      docker compose logs -f"
+echo -e "${BLUE}Stop services:${NC}  docker compose stop"
+echo -e "${BLUE}Restart:${NC}        docker compose restart"
+echo -e "${BLUE}Shell (API):${NC}    docker compose exec api bash"
 echo ""
 
 # Show logs if requested
 if [ "$SHOW_LOGS" = true ]; then
   echo -e "${YELLOW}Showing logs (Ctrl+C to exit)...${NC}"
   echo ""
-  docker-compose logs -f
+  docker compose logs -f
 fi

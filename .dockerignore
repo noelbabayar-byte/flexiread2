@@ -45,6 +45,8 @@ env/
 
 # Node
 node_modules/
+frontend/node_modules/
+frontend/dist/
 npm-debug.log
 yarn-error.log
 
@@ -62,8 +64,7 @@ logs/
 *.log
 
 # Docker
-docker-compose.yml
-docker-compose.codespaces.yml
+docker-compose*.yml
 Dockerfile
 .dockerignore
 
@@ -81,4 +82,4 @@ uploads/
 .devcontainer/
 .github/
 tests/
-
+*.md

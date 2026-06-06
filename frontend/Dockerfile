@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for React/Vite
-# Stages: base -> development -> production
+# Stages: base -> development -> build -> production
 
 # ============================================================================
 # Stage 1: Base
@@ -16,7 +16,7 @@ RUN npm install -g pnpm
 WORKDIR /app
 
 # Copy package files
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
 RUN pnpm install
@@ -53,25 +53,23 @@ RUN pnpm build
 # ============================================================================
 # Stage 4: Production
 # ============================================================================
-FROM node:22-alpine as production
-
-# Install lightweight HTTP server
-RUN npm install -g serve
+FROM nginx:alpine as production
 
 # Set environment
 ENV NODE_ENV=production
 
-WORKDIR /app
-
 # Copy built application from build stage
-COPY --from=build /app/dist ./dist
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Copy nginx config
+COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port
-EXPOSE 3000
+EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:3000/ || exit 1
+    CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
 
-# Serve static files
-CMD ["serve", "-s", "dist", "-l", "3000"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
