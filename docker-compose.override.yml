@@ -12,6 +12,7 @@ services:
       DEBUG: "True"
       APP_ENV: development
       LOG_LEVEL: DEBUG
+    restart: "no"
 
   worker:
     build:
@@ -24,6 +25,7 @@ services:
       DEBUG: "True"
       APP_ENV: development
       LOG_LEVEL: DEBUG
+    restart: "no"
 
   frontend:
     build:
@@ -37,3 +39,13 @@ services:
     environment:
       NODE_ENV: development
       VITE_API_URL: http://localhost:8000
+    restart: "no"
+
+  db:
+    restart: "no"
+
+  redis:
+    restart: "no"
+
+  minio:
+    restart: "no"

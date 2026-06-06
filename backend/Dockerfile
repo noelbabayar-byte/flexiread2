@@ -27,12 +27,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create app directory
 WORKDIR /app
 
-# Copy requirements from root
-COPY requirements.txt .
-
-# Install Python dependencies
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install -r requirements.txt
+# Robust requirement copy (supports both root and backend context)
+COPY requirements.txt* ./
+RUN if [ -f requirements.txt ]; then pip install --upgrade pip setuptools wheel && pip install -r requirements.txt; fi
 
 # ============================================================================
 # Stage 2: Development
