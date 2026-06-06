@@ -24,15 +24,12 @@ engine = create_engine(
     connect_args={
         "connect_timeout": 10,
         "application_name": "flexiread_backend",
-    }
+    },
 )
 
 # Create session factory
 SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine,
-    expire_on_commit=False
+    autocommit=False, autoflush=False, bind=engine, expire_on_commit=False
 )
 
 
@@ -58,9 +55,11 @@ def init_db():
     Call this once on application startup.
     """
     from app.models.base import Base
+
     # Models must be imported before create_all
-    import app.models.user
-    import app.models.book
+    import app.models.user  # noqa: F401
+    import app.models.book  # noqa: F401
+
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables initialized")
 
@@ -72,5 +71,5 @@ def receive_connect(dbapi_conn, connection_record):
     Enables UUID support in PostgreSQL.
     """
     cursor = dbapi_conn.cursor()
-    cursor.execute("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";")
+    cursor.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
     cursor.close()

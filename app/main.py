@@ -6,13 +6,12 @@ Registers all routers and configures middleware.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1.endpoints import auth, books
+from app.api.v1.endpoints import auth, books, users
 import logging
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -35,6 +34,7 @@ app.add_middleware(
 # Register routers
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(books.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
 
 
 @app.get("/health")
@@ -46,16 +46,12 @@ def health_check():
 @app.get("/")
 def root():
     """Root endpoint."""
-    return {
-        "message": "FlexiRead API",
-        "version": "1.0.0",
-        "docs": "/docs"
-    }
+    return {"message": "FlexiRead API", "version": "1.0.0", "docs": "/docs"}
 
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",

@@ -1,340 +1,110 @@
-# 📖 FlexiRead - PDF to Reflowable Text SaaS
+# FlexiRead
 
-**Convert PDFs into beautifully reflowable text with OCR-powered processing, optimized for iPad and mobile reading experiences.**
+FlexiRead, PDF dosyalarını yeniden akışlı (reflowable) metne dönüştüren modern bir SaaS uygulamasıdır. Backend tarafında FastAPI, SQLAlchemy, PostgreSQL, Redis, MinIO/S3 ve Celery kullanılır; frontend tarafında React, TypeScript, Vite ve Tailwind CSS yer alır.
 
----
+## Teknoloji Yığını
 
-## 🎯 Features
+| Katman | Teknolojiler |
+|---|---|
+| Backend API | FastAPI, Python 3.12, SQLAlchemy 2.0, Pydantic v2 |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| Veritabanı | PostgreSQL 16, Alembic migration yönetimi |
+| Cache ve Kuyruk | Redis 7, Celery |
+| Dosya Depolama | MinIO / S3 uyumlu depolama |
+| OCR ve PDF İşleme | Tesseract, PyMuPDF, Pillow |
+| Test ve CI/CD | Pytest, pytest-cov, factory-boy, GitHub Actions |
 
-- **🔄 PDF to Reflowable Text**: Convert static PDFs into responsive, reflow-friendly text using hybrid OCR (PyMuPDF + Tesseract)
-- **📱 iPad & Mobile Optimized**: Responsive design with custom fonts, themes, and virtual scrolling for smooth 60fps reading
-- **🔐 JWT Authentication**: Secure user authentication with OAuth integration
-- **💳 Freemium Model**: Subscription-based feature gating with monthly quotas
-- **⚡ Asynchronous Processing**: Celery-based background tasks for heavy PDF operations
-- **☁️ Cloud-Ready**: GitHub Codespaces support with Docker Compose for seamless deployment
-- **🗄️ PostgreSQL & Redis**: Robust data persistence and real-time progress tracking
-- **📦 S3/MinIO Storage**: Secure file storage with presigned URLs
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Frontend (React + TS)                    │
-│  - Reader Engine: Vanilla TS for 60fps scrolling            │
-│  - Virtual Scrolling: Efficient rendering of large texts    │
-│  - Theme/Font Customization: Dark mode, multiple fonts      │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│              Backend (FastAPI + SQLAlchemy)                 │
-│  - JWT Auth: Secure user sessions                           │
-│  - tRPC Procedures: Type-safe API contracts                 │
-│  - Rate Limiting: Redis-based request throttling            │
-│  - Subscription Gating: Plan-based feature access           │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│           Worker (Celery + Redis + Tesseract)               │
-│  - Hybrid OCR: PyMuPDF + Tesseract for accuracy             │
-│  - Memory-Efficient: Streaming page processing              │
-│  - Progress Tracking: Real-time Redis updates               │
-│  - S3 Storage: Processed content persistence                │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│    Infrastructure (PostgreSQL, Redis, MinIO, Docker)        │
-│  - PostgreSQL: User data, subscriptions, documents          │
-│  - Redis: Caching, rate limiting, progress tracking         │
-│  - MinIO: S3-compatible object storage                      │
-│  - Docker Compose: Orchestration for all services           │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🚀 Quick Start
-
-### Option 1: GitHub Codespaces (Recommended)
-
-1. **Open in Codespaces:**
-   ```bash
-   # Click "Code" → "Codespaces" → "Create codespace on main"
-   ```
-
-2. **Wait for setup** (automatic via `.devcontainer/setup.sh`)
-
-3. **Start services:**
-   ```bash
-   # Terminal 1: Backend
-   python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-   # Terminal 2: Worker
-   celery -A worker.tasks worker --loglevel=info
-
-   # Terminal 3: Frontend
-   cd frontend && npm run dev
-   ```
-
-4. **Access the app:**
-   - Frontend: http://localhost:3000
-   - Backend Docs: http://localhost:8000/docs
-   - MinIO Console: http://localhost:9000
-
-### Option 2: Local Development
-
-**Prerequisites:**
-- Python 3.11+
-- Node.js 18+
-- Docker & Docker Compose
-- Tesseract OCR
-
-**Setup:**
+## Hızlı Başlangıç
 
 ```bash
-# Clone repository
 git clone https://github.com/noelbabayar-byte/flexiread.git
 cd flexiread
+cp .env.example .env
+docker compose up -d
+docker compose exec api alembic upgrade head
+```
 
-# Install dependencies
+API varsayılan olarak `http://localhost:8000` adresinde, frontend ise `http://localhost:5173` adresinde çalışır. API dokümantasyonu için Swagger UI `http://localhost:8000/docs`, ReDoc ise `http://localhost:8000/redoc` üzerinden erişilebilir.
+
+## Veritabanı Migration Yönetimi
+
+Proje artık Alembic ile sürümlenmiş migration yapısına sahiptir. İlk kurulumdan sonra migration çalıştırmak için aşağıdaki komut kullanılmalıdır.
+
+```bash
+alembic upgrade head
+```
+
+Docker içinde çalışırken eşdeğer komut şudur.
+
+```bash
+docker compose exec api alembic upgrade head
+```
+
+Yeni model değişiklikleri için önerilen akış aşağıdaki gibidir.
+
+```bash
+alembic revision --autogenerate -m "describe change"
+alembic upgrade head
+```
+
+## Testler
+
+Backend test altyapısı `tests/` dizini altında yapılandırılmıştır. Testler, PostgreSQL ve Redis servisleriyle izole çalışacak şekilde tasarlanmıştır.
+
+```bash
 pip install -r requirements.txt
-cd frontend && npm install && cd ..
-
-# Start Docker services
-docker-compose up -d
-
-# Run migrations
-python -m alembic upgrade head
-
-# Start backend
-python -m uvicorn app.main:app --reload
-
-# In another terminal: Start worker
-celery -A worker.tasks worker --loglevel=info
-
-# In another terminal: Start frontend
-cd frontend && npm run dev
+pip install -r requirements-dev.txt
+pytest
+pytest --cov=app --cov-report=html
 ```
 
----
+| Test Dosyası | Kapsam |
+|---|---|
+| `tests/test_auth.py` | Kayıt, giriş, logout, refresh token ve JWT blacklist davranışı |
+| `tests/test_users.py` | Kullanıcı profil ve quota endpoint'leri |
+| `tests/test_books.py` | PDF upload URL ve kitap durum endpoint'leri |
+| `tests/test_rate_limiter.py` | Redis tabanlı rate limiter davranışı |
+| `tests/test_ocr.py` | PDF doğrudan metin çıkarımı ve işlem çıktısı |
+| `tests/test_s3.py` | S3/MinIO yardımcı sınıfı için mock AWS testleri |
 
-## 📁 Project Structure
+## API Versioning Stratejisi
 
-```
-flexiread/
-├── .devcontainer/              # GitHub Codespaces configuration
-│   ├── devcontainer.json       # Container setup
-│   └── setup.sh                # Initialization script
-├── app/                        # FastAPI backend
-│   ├── core/                   # Config, database, security
-│   ├── models/                 # SQLAlchemy ORM models
-│   ├── schemas/                # Pydantic request/response schemas
-│   ├── api/
-│   │   └── v1/endpoints/       # API routes (auth, books, users)
-│   └── utils/                  # Helpers (S3, rate limiting)
-├── worker/                     # Celery tasks
-│   └── tasks.py                # PDF processing, OCR pipeline
-├── frontend/                   # React + TypeScript
-│   ├── src/
-│   │   ├── reader/             # Reader Engine (Vanilla TS)
-│   │   ├── components/         # React UI components
-│   │   ├── pages/              # Page layouts
-│   │   └── App.tsx             # Main app component
-│   └── package.json
-├── migrations/                 # Alembic database migrations
-├── tests/                      # Unit & integration tests
-├── docker-compose.yml          # Local development
-├── docker-compose.codespaces.yml # Codespaces-optimized
-├── requirements.txt            # Python dependencies
-└── README.md                   # This file
-```
+Tüm public endpoint'ler `/api/v1` prefix'i altında yayınlanır. Geriye dönük uyumsuz değişiklikler gerektiğinde yeni endpoint seti `/api/v2` altında açılmalı, `/api/v1` ise belirlenmiş bir deprecation süresi boyunca korunmalıdır. Router agregasyonu `app/api/v1/api.py` içinde tutulur; uygulama giriş noktası da aynı endpoint setini `/api/v1` altında bağlar.
 
----
+## Kimlik Doğrulama
 
-## 🔑 Environment Variables
+Auth akışı JWT access token ve refresh token kullanır. Logout işlemi access token içindeki `jti` değerini Redis tabanlı blacklist'e ekler; kayıtlı blacklist anahtarları token süresi dolduğunda TTL ile otomatik silinir.
 
-Create a `.env` file in the root directory:
+| Endpoint | Açıklama |
+|---|---|
+| `POST /api/v1/auth/register` | Yeni kullanıcı oluşturur |
+| `POST /api/v1/auth/login` | Access ve refresh token üretir |
+| `POST /api/v1/auth/logout` | Mevcut access token'ı revoke eder |
+| `POST /api/v1/auth/refresh` | Refresh token ile yeni access token üretir |
+| `GET /api/v1/users/me` | Aktif kullanıcı profilini döndürür |
+| `GET /api/v1/users/quota` | Aktif kullanıcının OCR quota durumunu döndürür |
+| `GET /api/v1/users/profile` | Detaylı kullanıcı profilini döndürür |
 
-```env
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/flexiread
+## CI/CD
 
-# Redis
-REDIS_URL=redis://localhost:6379/0
+GitHub Actions pipeline'ı `.github/workflows/ci.yml` dosyasında tanımlıdır. Her push ve pull request için PostgreSQL ve Redis servisleri ayağa kaldırılır, bağımlılıklar kurulur, Alembic migration'ları uygulanır, testler coverage raporuyla çalıştırılır, lint kontrolleri yürütülür ve Docker image build doğrulaması yapılır.
 
-# AWS S3 / MinIO
-AWS_ACCESS_KEY_ID=minioadmin
-AWS_SECRET_ACCESS_KEY=minioadmin
-AWS_S3_BUCKET_NAME=flexiread-dev
-AWS_S3_REGION=us-east-1
-AWS_S3_INTERNAL_ENDPOINT_URL=http://minio:9000
-AWS_S3_PUBLIC_ENDPOINT_URL=http://localhost:9000
+## Proje Yapısı
 
-# JWT
-SECRET_KEY=your-secret-key-here
-ALGORITHM=HS256
-
-# Celery
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
-
-# Tesseract
-TESSERACT_CMD=/usr/bin/tesseract
+```text
+app/
+  api/v1/endpoints/    REST endpoint'leri
+  core/                config, database, security, celery ve JWT blacklist
+  models/              SQLAlchemy modelleri
+  schemas/             Pydantic request/response modelleri
+  utils/               OCR, S3 ve rate limiter yardımcıları
+alembic/               Alembic migration ortamı ve sürümleri
+tests/                 Unit ve integration testleri
+.github/workflows/     CI/CD pipeline tanımları
+frontend/              React okuyucu uygulaması
+worker/                Celery task'ları
 ```
 
----
+## Ortam Değişkenleri
 
-## 📊 API Endpoints
-
-### Authentication
-- `POST /api/v1/auth/register` - Register new user
-- `POST /api/v1/auth/login` - Login with credentials
-- `POST /api/v1/auth/logout` - Logout current user
-
-### Books (PDF Management)
-- `POST /api/v1/books/upload-url` - Get presigned S3 upload URL
-- `POST /api/v1/books/process/{book_id}` - Trigger PDF processing
-- `GET /api/v1/books/{book_id}/status` - Get processing status
-- `GET /api/v1/books/{book_id}/content` - Get processed content
-
-### Users
-- `GET /api/v1/users/me` - Get current user profile
-- `PUT /api/v1/users/me` - Update user profile
-- `GET /api/v1/users/quota` - Get OCR quota info
-
----
-
-## 🧪 Testing
-
-### Run Unit Tests
-```bash
-pytest tests/ -v
-```
-
-### Run Integration Tests
-```bash
-pytest tests/integration/ -v --tb=short
-```
-
-### Test E2E Flow
-```bash
-# See E2E_TEST_PROTOCOL.md for detailed instructions
-bash tests/e2e_test.sh
-```
-
----
-
-## 🐳 Docker Services
-
-### Start All Services
-```bash
-docker-compose up -d
-```
-
-### View Logs
-```bash
-docker-compose logs -f [service_name]
-# Services: postgres, redis, minio, backend, worker, frontend
-```
-
-### Stop Services
-```bash
-docker-compose down
-```
-
-### Reset Database
-```bash
-docker-compose down -v  # Remove volumes
-docker-compose up -d
-```
-
----
-
-## 📚 Documentation
-
-- **[Codespaces Quick Start](./CODESPACES_QUICKSTART.md)** - Get running in Codespaces in 5 minutes
-- **[Docker Dev Guide](./DOCKER_DEV_GUIDE.md)** - Local development with Docker Compose
-- **[E2E Test Protocol](./E2E_TEST_PROTOCOL.md)** - Complete testing workflow
-- **[Architecture Explanation](./ADIM_2_EXPLANATION.md)** - Deep dive into system design
-- **[Implementation Details](./ADIM_3_EXPLANATION.md)** - Technical implementation guide
-
----
-
-## 🔐 Security
-
-- **JWT Authentication**: Secure token-based auth with expiration
-- **Rate Limiting**: Redis-based request throttling per user
-- **Input Validation**: Pydantic schemas for all API inputs
-- **SQL Injection Prevention**: SQLAlchemy ORM with parameterized queries
-- **CORS Configuration**: Restricted to trusted origins
-- **File Upload Validation**: File type and size restrictions
-
----
-
-## 🚀 Deployment
-
-### Deploy to Heroku
-```bash
-heroku create flexiread-app
-git push heroku main
-heroku run python -m alembic upgrade head
-```
-
-### Deploy to Railway
-```bash
-railway link
-railway up
-```
-
-### Deploy to AWS
-See [AWS Deployment Guide](./docs/AWS_DEPLOYMENT.md)
-
----
-
-## 📈 Performance Optimizations
-
-- **Virtual Scrolling**: Render only visible items in reader
-- **Redis Caching**: Cache user data and processing status
-- **Presigned URLs**: Direct S3 uploads without backend overhead
-- **Streaming OCR**: Process PDFs page-by-page to reduce memory
-- **Connection Pooling**: Reuse database connections
-- **CDN Integration**: Serve static assets from CDN
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see [LICENSE](./LICENSE) file for details.
-
----
-
-## 💬 Support
-
-- **Issues**: GitHub Issues
-- **Discussions**: GitHub Discussions
-- **Email**: support@flexiread.app
-
----
-
-## 🎉 Acknowledgments
-
-- PyMuPDF for PDF processing
-- Tesseract for OCR
-- FastAPI for the backend framework
-- React for the frontend
-- Docker for containerization
-
----
-
-**Built with ❤️ for better reading experiences**
+`.env.example` dosyası yerel geliştirme için gerekli temel değişkenleri içerir. Production ortamında özellikle `JWT_SECRET_KEY`, veritabanı parolaları, Redis parolası ve S3 kimlik bilgileri güvenli secret yönetimiyle sağlanmalıdır.

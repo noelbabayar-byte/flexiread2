@@ -40,6 +40,7 @@ celery_app.conf.update(
 # Try to import worker config if it exists
 try:
     from worker.config import CELERY_BEAT_SCHEDULE, WORKER_CONFIG
+
     celery_app.conf.update(beat_schedule=CELERY_BEAT_SCHEDULE)
     celery_app.conf.update(WORKER_CONFIG)
     logger.info("Worker configuration loaded from worker.config")

@@ -4,7 +4,6 @@ Defines periodic tasks and worker settings.
 """
 
 from celery.schedules import crontab
-from app.core.config import settings
 
 # Celery Beat schedule for periodic tasks
 CELERY_BEAT_SCHEDULE = {
@@ -14,7 +13,9 @@ CELERY_BEAT_SCHEDULE = {
     },
     "reset-monthly-quotas": {
         "task": "reset_monthly_quotas",
-        "schedule": crontab(day_of_month=1, hour=0, minute=0),  # Run on 1st of month at midnight
+        "schedule": crontab(
+            day_of_month=1, hour=0, minute=0
+        ),  # Run on 1st of month at midnight
     },
 }
 

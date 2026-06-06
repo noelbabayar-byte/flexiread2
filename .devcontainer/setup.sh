@@ -64,7 +64,7 @@ REDIS_URL=redis://:flexiread_redis_dev@redis:6379/0
 AWS_ACCESS_KEY_ID=minioadmin
 AWS_SECRET_ACCESS_KEY=minioadmin
 AWS_S3_BUCKET=flexiread-dev
-JWT_SECRET_KEY=dev-secret-key-change-in-production
+JWT_SECRET_KEY=change-me-in-production-min-32-chars-long
 EOF
   fi
 fi
