@@ -22,10 +22,22 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Validate CORS security configuration at import/boot time
+allowed_origins = settings.get_allowed_origins_list()
+if settings.is_production():
+    if not allowed_origins:
+        logger.critical("CORS Security Failure: ALLOWED_ORIGINS must be set in production.")
+        raise RuntimeError("ALLOWED_ORIGINS must be set in production")
+    if "*" in allowed_origins:
+        logger.critical(
+            "CORS Security Failure: Wildcard '*' origins are strictly prohibited in production."
+        )
+        raise RuntimeError("Wildcard CORS origins are not allowed in production")
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.get_allowed_origins_list(),
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
