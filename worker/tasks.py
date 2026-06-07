@@ -88,6 +88,7 @@ def progress_callback_factory(book_id: str, db_session: Session):
     Returns:
         Callback function
     """
+
     def callback(current_page: int, total_pages: int) -> None:
         # Always update Redis (fast)
         update_progress_redis(book_id, current_page, total_pages)
@@ -100,10 +101,7 @@ def progress_callback_factory(book_id: str, db_session: Session):
 
 
 @celery_app.task(
-    name="process_pdf_task",
-    bind=True,
-    max_retries=3,
-    default_retry_delay=60
+    name="process_pdf_task", bind=True, max_retries=3, default_retry_delay=60
 )
 def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
     """
@@ -113,8 +111,10 @@ def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
     db = SessionLocal()
     local_pdf_path = None
     try:
-        logger.info(f"Starting PDF processing: book_id={book_id}, attempt={self.request.retries}")
-        
+        logger.info(
+            f"Starting PDF processing: book_id={book_id}, attempt={self.request.retries}"
+        )
+
         # Fetch book from database
         book = db.query(Book).filter(Book.id == book_id).first()
         if not book:
@@ -148,7 +148,7 @@ def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
         logger.info("Uploading processed content to S3...")
         content_s3_key = f"processed/{user_id}/{book_id}/content.json"
         parsed_content_url = s3_storage.upload_json(result, content_s3_key)
-        
+
         if not parsed_content_url:
             raise RuntimeError("Failed to upload processed content to S3")
 
@@ -157,12 +157,12 @@ def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
         book.mark_completed(parsed_content_url)
         book.total_pages = summary.get("total_pages", 0)
         book.processed_pages = book.total_pages
-        
+
         # Update user quota
         user = db.query(User).filter(User.id == user_id).first()
         if user:
             user.consume_quota(ocr_pages)
-        
+
         db.commit()
 
         # Step 6: Cleanup
@@ -184,8 +184,11 @@ def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
 
     except Exception as e:
         db.rollback()
-        logger.error(f"PDF processing failed on attempt {self.request.retries}: {e}", exc_info=True)
-        
+        logger.error(
+            f"PDF processing failed on attempt {self.request.retries}: {e}",
+            exc_info=True,
+        )
+
         # Cleanup temp file on error
         if local_pdf_path and os.path.exists(local_pdf_path):
             try:
@@ -195,7 +198,9 @@ def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
 
         # Smart Retry: Only mark as FAILED if max retries reached
         if self.request.retries >= self.max_retries:
-            logger.critical(f"Max retries reached for book {book_id}. Marking as FAILED.")
+            logger.critical(
+                f"Max retries reached for book {book_id}. Marking as FAILED."
+            )
             try:
                 failed_book = db.query(Book).filter(Book.id == book_id).first()
                 if failed_book:
@@ -207,7 +212,7 @@ def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
         else:
             # Still have retries left! Don't mark as failed, just retry
             raise self.retry(exc=e)
-            
+
     finally:
         db.close()
 
