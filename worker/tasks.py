@@ -184,15 +184,15 @@ def process_pdf_task(book_id: str, s3_pdf_key: str, user_id: str) -> dict:
         book.mark_completed(parsed_content_url)
         book.total_pages = summary.get("total_pages", 0)
         book.processed_pages = book.total_pages
+        db.commit()
 
-        # Update user quota
+        # Step 6: Update user quota (AFTER successful S3 upload and book completion)
         user = db.query(User).filter(User.id == user_id).first()
         if user:
             user.consume_quota(ocr_pages)
+            db.commit()
 
-        db.commit()
-
-        # Step 6: Cleanup
+        # Step 7: Cleanup
         logger.info("Cleaning up temporary files...")
         if local_pdf_path and os.path.exists(local_pdf_path):
             os.unlink(local_pdf_path)
