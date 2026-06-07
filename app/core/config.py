@@ -68,9 +68,7 @@ class Settings(BaseSettings):
     # ========================================================================
     # JWT & Authentication
     # ========================================================================
-    JWT_SECRET_KEY: str = Field(
-        default_factory=lambda: secrets.token_urlsafe(32), description="JWT secret key"
-    )
+    JWT_SECRET_KEY: Optional[str] = Field(default=None, description="JWT secret key")
     JWT_ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
     JWT_EXPIRATION_HOURS: int = Field(default=24, description="JWT expiration hours")
     JWT_REFRESH_EXPIRATION_DAYS: int = Field(
@@ -184,13 +182,26 @@ class Settings(BaseSettings):
     # Validators and Post-Init Logic
     # ========================================================================
 
-    @field_validator("JWT_SECRET_KEY", mode="after")
+    @field_validator("JWT_SECRET_KEY", mode="before")
     @classmethod
-    def validate_secret_key(cls, v: str) -> str:
-        """Ensure JWT secrets meet the minimum production safety length."""
-        if len(v) < 32:
-            raise ValueError("JWT_SECRET_KEY must be at least 32 characters long")
-        return v
+    def validate_secret_key(cls, v: Optional[str], info: ValidationInfo) -> str:
+        """
+        Validate JWT_SECRET_KEY.
+        In production: Must be provided and at least 32 characters.
+        In development: Auto-generate if None.
+        """
+        env = info.data.get("APP_ENV", "development")
+        if env == "production":
+            if not v:
+                raise ValueError("JWT_SECRET_KEY must be set in production")
+            if len(v) < 32:
+                raise ValueError(
+                    "JWT_SECRET_KEY must be at least 32 characters in production"
+                )
+            return v
+
+        # Development/Testing: Auto-generate if not provided
+        return v or secrets.token_urlsafe(32)
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
