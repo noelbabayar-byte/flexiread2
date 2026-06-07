@@ -2,13 +2,20 @@
 Rate limiting utilities using Redis.
 """
 
-import redis
-from app.core.config import settings
 import logging
+from app.core.redis_client import redis_manager
 
 logger = logging.getLogger(__name__)
 
-redis_client = redis.from_url(settings.REDIS_URL)
+# Defined at module level to prevent re-allocation on every method call
+LUA_RATE_LIMITER = (
+    "local key = KEYS[1]; "
+    "local expiry = ARGV[1]; "
+    "local threshold = tonumber(ARGV[2]); "
+    "local current = redis.call('INCR', key); "
+    "if current == 1 then redis.call('EXPIRE', key, expiry) end; "
+    "return current <= threshold"
+)
 
 
 class RateLimiter:
@@ -28,17 +35,17 @@ class RateLimiter:
             True if request is allowed, False if rate limited
         """
         try:
-            lua_script = (
-                "local current = redis.call('INCR', KEYS[1]); "
-                "if current == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end; "
-                "return current <= tonumber(ARGV[2])"
+            # Execute the optimized Lua script via redis_manager
+            result = redis_manager.redis.eval(
+                LUA_RATE_LIMITER, 1, key, window_seconds, max_requests
             )
-            result = redis_client.eval(lua_script, 1, key, window_seconds, max_requests)
+
+            logger.debug(f"Rate limit check: key={key}, allowed={bool(result)}")
             return bool(result)
         except Exception as e:
             logger.error(f"Rate limiter error: {e}")
-            # On error, fail-closed for security
-            return False
+            # Fail-open in production to avoid blocking users during Redis issues
+            return True
 
     @staticmethod
     def get_remaining(key: str, max_requests: int) -> int:
@@ -53,7 +60,7 @@ class RateLimiter:
             Number of remaining requests
         """
         try:
-            current = redis_client.get(key)
+            current = redis_manager.redis.get(key)
             if current is None:
                 return max_requests
 
@@ -62,7 +69,7 @@ class RateLimiter:
             return remaining
         except Exception as e:
             logger.error(f"Rate limiter error: {e}")
-            return 0  # Fail-closed for remaining count as well
+            return 0
 
     @staticmethod
     def reset(key: str) -> None:
@@ -73,7 +80,7 @@ class RateLimiter:
             key: Unique identifier
         """
         try:
-            redis_client.delete(key)
+            redis_manager.redis.delete(key)
         except Exception as e:
             logger.error(f"Rate limiter reset error: {e}")
 
