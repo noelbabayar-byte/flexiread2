@@ -9,6 +9,7 @@ import uuid
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.core.config import settings
+from app.core.jwt_blacklist import jwt_blacklist
 import logging
 
 logger = logging.getLogger(__name__)
@@ -132,8 +133,6 @@ class SecurityManager:
             )
             jti = payload.get("jti")
             if jti:
-                from app.core.jwt_blacklist import jwt_blacklist
-
                 if jwt_blacklist.is_blacklisted(jti):
                     logger.warning("Token has been revoked: %s", jti)
                     return None

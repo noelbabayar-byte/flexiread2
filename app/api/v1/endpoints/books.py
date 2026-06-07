@@ -179,6 +179,14 @@ async def process_book(
         HTTPException 409: Book already processing
     """
     try:
+        # Validate UUID format
+        try:
+            book_uuid = uuid.UUID(book_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid book ID format"
+            )
+
         # Step 1: Rate limiting
         rate_limit_key = f"user:{current_user.id}:process_pdf"
         if not rate_limiter.is_allowed(
@@ -191,7 +199,7 @@ async def process_book(
             )
 
         # Step 2: Fetch book
-        book = db.query(Book).filter(Book.id == book_id).first()
+        book = db.query(Book).filter(Book.id == book_uuid).first()
         if not book:
             logger.warning(f"Book not found: {book_id}")
             raise HTTPException(
@@ -278,8 +286,16 @@ async def get_book_status(
         HTTPException 403: Not book owner
     """
     try:
+        # Validate UUID format
+        try:
+            book_uuid = uuid.UUID(book_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid book ID format"
+            )
+
         # Step 1: Fetch book from database
-        book = db.query(Book).filter(Book.id == book_id).first()
+        book = db.query(Book).filter(Book.id == book_uuid).first()
         if not book:
             logger.warning(f"Book not found: {book_id}")
             raise HTTPException(
@@ -356,8 +372,16 @@ async def get_book_content(
         HTTPException 500: Failed to retrieve content
     """
     try:
+        # Validate UUID format
+        try:
+            book_uuid = uuid.UUID(book_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid book ID format"
+            )
+
         # Step 1: Fetch book
-        book = db.query(Book).filter(Book.id == book_id).first()
+        book = db.query(Book).filter(Book.id == book_uuid).first()
         if not book:
             logger.warning(f"Book not found: {book_id}")
             raise HTTPException(
