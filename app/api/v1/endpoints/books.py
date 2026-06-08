@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 import redis
 from app.core.database import get_db
 from app.core.config import settings
-from app.models.user import User
+from app.models.user import User, SubscriptionTier
 from app.models.book import Book, BookStatus
 from app.api.dependencies import get_current_user
 from app.schemas.books import (
@@ -72,7 +72,7 @@ async def get_upload_url(
             )
 
         # Step 2: Validate file size based on subscription tier
-        if current_user.plan_type.value == "free":
+        if current_user.plan_type == SubscriptionTier.FREE:
             if request.file_size > FREE_TIER_MAX_SIZE:
                 logger.warning(
                     f"Free user exceeded size limit: {current_user.email} "
