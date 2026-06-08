@@ -68,3 +68,12 @@ class ProcessBookResponse(BaseModel):
     status: str
     task_id: str
     message: str
+
+
+class BookListResponse(BaseModel):
+    """Paginated list of books."""
+
+    items: list[BookStatusResponse]
+    total: int
+    page: int
+    size: int
