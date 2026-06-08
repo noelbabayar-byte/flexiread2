@@ -15,7 +15,7 @@ from app.core.database import SessionLocal
 from app.core.config import settings
 from app.core.redis_client import redis_manager
 from app.models.book import Book, BookStatus
-from app.models.user import User
+from app.models.user import User, SubscriptionTier
 from app.utils.s3_storage import s3_storage
 from app.utils.ocr_processor import process_pdf_file
 
@@ -296,7 +296,7 @@ def reset_monthly_quotas():
 
             for user in users:
                 # Reset based on subscription tier
-                if user.plan_type.value == "pro":
+                if user.plan_type == SubscriptionTier.PRO:
                     user.ocr_quota_remaining = settings.PRO_TIER_MONTHLY_QUOTA
                 else:
                     user.ocr_quota_remaining = settings.FREE_TIER_MONTHLY_QUOTA

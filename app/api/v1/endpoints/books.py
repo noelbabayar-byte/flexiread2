@@ -7,10 +7,11 @@ import json
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import redis
 from app.core.database import get_db
 from app.core.config import settings
-from app.models.user import User
+from app.models.user import User, SubscriptionTier
 from app.models.book import Book, BookStatus
 from app.api.dependencies import get_current_user
 from app.schemas.books import (
@@ -19,6 +20,7 @@ from app.schemas.books import (
     BookStatusResponse,
     BookContentResponse,
     ProcessBookResponse,
+    BookListResponse,
 )
 from app.utils.s3_storage import s3_storage
 from app.utils.rate_limiter import rate_limiter
@@ -35,6 +37,38 @@ redis_client = redis.from_url(settings.REDIS_URL)
 # File size limits (in bytes)
 FREE_TIER_MAX_SIZE = 50 * 1024 * 1024  # 50 MB
 PRO_TIER_MAX_SIZE = 200 * 1024 * 1024  # 200 MB
+
+
+@router.get("/", response_model=BookListResponse)
+async def list_books(
+    skip: int = 0,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    List all books for the current user with optimized pagination.
+    """
+    # 1. Optimized Count Query using Primary Key directly
+    total = (
+        db.query(func.count(Book.id)).filter(Book.user_id == current_user.id).scalar()
+        or 0
+    )
+
+    # 2. Paginated Data Query
+    books = (
+        db.query(Book)
+        .filter(Book.user_id == current_user.id)
+        .order_by(Book.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    # 3. Predictable page calculation mapping
+    current_page = (skip // limit) + 1 if limit > 0 else 1
+
+    return {"items": books, "total": total, "page": current_page, "size": limit}
 
 
 @router.post("/upload-url", response_model=PresignedURLResponse)
@@ -72,7 +106,7 @@ async def get_upload_url(
             )
 
         # Step 2: Validate file size based on subscription tier
-        if current_user.plan_type.value == "free":
+        if current_user.plan_type == SubscriptionTier.FREE:
             if request.file_size > FREE_TIER_MAX_SIZE:
                 logger.warning(
                     f"Free user exceeded size limit: {current_user.email} "

@@ -49,8 +49,7 @@ class BookContentResponse(BaseModel):
     title: str
     status: BookStatus
     total_pages: int
-    pages: list  # Array of page data
-    summary: dict  # Processing summary
+    content_summary: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -69,3 +68,12 @@ class ProcessBookResponse(BaseModel):
     status: str
     task_id: str
     message: str
+
+
+class BookListResponse(BaseModel):
+    """Paginated list of books."""
+
+    items: list[BookStatusResponse]
+    total: int
+    page: int
+    size: int
