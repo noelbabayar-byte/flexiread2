@@ -295,8 +295,8 @@ def reset_monthly_quotas():
             now = datetime.now(timezone.utc)
 
             for user in users:
-            # Reset based on subscription tier
-            if user.plan_type == SubscriptionTier.PRO:
+                # Reset based on subscription tier
+                if user.plan_type == SubscriptionTier.PRO:
                     user.ocr_quota_remaining = settings.PRO_TIER_MONTHLY_QUOTA
                 else:
                     user.ocr_quota_remaining = settings.FREE_TIER_MONTHLY_QUOTA
