@@ -85,27 +85,33 @@ class PDFProcessor:
         """
         try:
             page = self.document[page_num]
+            pix = None
+            img = None
+            try:
+                # Render page to image (300 DPI for better OCR)
+                pix = page.get_pixmap(
+                    matrix=fitz.Matrix(300 / 72, 300 / 72), alpha=False
+                )
+                img_data = pix.tobytes("png")
 
-            # Render page to image (300 DPI for better OCR)
-            pix = page.get_pixmap(matrix=fitz.Matrix(300 / 72, 300 / 72), alpha=False)
-            img_data = pix.tobytes("png")
+                # Convert to PIL Image
+                img = Image.open(io.BytesIO(img_data))
 
-            # Convert to PIL Image
-            img = Image.open(io.BytesIO(img_data))
-
-            # Run Tesseract OCR
-            text = pytesseract.image_to_string(
-                img,
-                lang=settings.OCR_LANGUAGE,
-                config="--psm 1",  # Automatic page segmentation
-            )
-
-            # Free image memory
-            del img
-            del pix
-            gc.collect()
-
-            return text.strip()
+                # Run Tesseract OCR
+                text = pytesseract.image_to_string(
+                    img,
+                    lang=settings.OCR_LANGUAGE,
+                    config="--psm 1",  # Automatic page segmentation
+                )
+                return text.strip()
+            finally:
+                # Strict explicit memory release for heavy assets
+                if img:
+                    img.close()
+                    del img
+                if pix:
+                    # Explicitly delete PyMuPDF C++ reference before Python GC
+                    del pix
         except Exception as e:
             logger.error(f"OCR failed for page {page_num}: {e}")
             return ""
