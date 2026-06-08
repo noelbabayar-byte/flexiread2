@@ -9,7 +9,10 @@ from app.models.user import User  # noqa: F401
 from app.models.book import Book  # noqa: F401
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+# Dynamically inject the database URL from application settings, overriding the ini placeholder
+if settings.DATABASE_URL:
+    config.set_main_option("sqlalchemy.url", str(settings.DATABASE_URL))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
