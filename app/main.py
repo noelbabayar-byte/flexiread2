@@ -26,7 +26,9 @@ app = FastAPI(
 allowed_origins = settings.get_allowed_origins_list()
 if settings.is_production():
     if not allowed_origins:
-        logger.critical("CORS Security Failure: ALLOWED_ORIGINS must be set in production.")
+        logger.critical(
+            "CORS Security Failure: ALLOWED_ORIGINS must be set in production."
+        )
         raise RuntimeError("ALLOWED_ORIGINS must be set in production")
     if "*" in allowed_origins:
         logger.critical(

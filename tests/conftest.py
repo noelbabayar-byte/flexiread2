@@ -96,11 +96,13 @@ def mocked_external_services():
     with patch(
         "app.api.v1.endpoints.books.s3_storage.generate_presigned_url",
         return_value="http://example.com/upload",
-    ), patch("app.api.v1.endpoints.books.redis_client.get", return_value=None), patch(
-        "app.utils.rate_limiter.redis_client.eval", return_value=1
     ), patch(
-        "app.utils.rate_limiter.redis_client.get", return_value=None
+        "app.api.v1.endpoints.books.redis_client.get", return_value=None
     ), patch(
-        "app.utils.rate_limiter.redis_client.delete", return_value=1
+        "app.utils.rate_limiter.redis_manager.redis.eval", return_value=1
+    ), patch(
+        "app.utils.rate_limiter.redis_manager.redis.get", return_value=None
+    ), patch(
+        "app.utils.rate_limiter.redis_manager.redis.delete", return_value=1
     ):
         yield
