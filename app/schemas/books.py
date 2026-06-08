@@ -49,8 +49,7 @@ class BookContentResponse(BaseModel):
     title: str
     status: BookStatus
     total_pages: int
-    pages: list  # Array of page data
-    summary: dict  # Processing summary
+    content_summary: Optional[str] = None
 
     class Config:
         from_attributes = True
