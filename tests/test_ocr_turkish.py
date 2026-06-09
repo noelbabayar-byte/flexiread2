@@ -16,14 +16,15 @@ class TestTurkishOCR:
             "İstanbul'da şenlikli, güvenli, ölçülü ve coşkulu bir Türkçe yolculuk."
         )
 
-        # We patch the instance method directly to return a plain string when called
+        # Patch the instance method directly to return a plain string when called
         with patch(
             "app.utils.ocr_processor.PDFProcessor.extract_text_from_page",
             return_value=mock_text,
         ):
             from app.utils.ocr_processor import PDFProcessor
 
-            processor = PDFProcessor()
+            # Pass a dummy path to satisfy the __init__ required argument
+            processor = PDFProcessor(pdf_path="dummy.pdf")
             result = processor.extract_text_from_page(0)
 
             # Direct plain string assertions
