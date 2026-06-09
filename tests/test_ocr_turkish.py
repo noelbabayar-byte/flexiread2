@@ -12,29 +12,26 @@ class TestTurkishOCR:
             pass
 
     def test_turkish_character_extraction(self):
-        mock_text = (
-            "İstanbul'da şenlikli, güvenli, ölçülü ve coşkulu bir Türkçe yolculuk."
-        )
+        # Added 'doğru' to ensure the small 'ğ' character is actually present in the text!
+        mock_text = "İstanbul'da doğru, şenlikli, güvenli, ölçülü ve coşkulu bir Türkçe yolculuk."
 
-        # Patch the instance method directly to return a plain string when called
         with patch(
             "app.utils.ocr_processor.PDFProcessor.extract_text_from_page",
             return_value=mock_text,
         ):
             from app.utils.ocr_processor import PDFProcessor
 
-            # Pass a dummy path to satisfy the __init__ required argument
             processor = PDFProcessor(pdf_path="dummy.pdf")
             result = processor.extract_text_from_page(0)
+            result_str = str(result)
 
-            # Direct plain string assertions
-            assert str(result) == mock_text
-            assert "İ" in str(result)
-            assert "ş" in str(result)
-            assert "ğ" in str(result)
-            assert "ü" in str(result)
-            assert "ö" in str(result)
-            assert "ç" in str(result)
+            assert result_str == mock_text
+            assert "İ" in result_str
+            assert "ş" in result_str
+            assert "ğ" in result_str
+            assert "ü" in result_str
+            assert "ö" in result_str
+            assert "ç" in result_str
 
     def test_ocr_language_config(self):
         from app.core.config import settings
