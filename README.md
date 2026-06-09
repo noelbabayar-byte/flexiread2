@@ -65,7 +65,22 @@ pytest --cov=app --cov-report=html
 | `tests/test_books.py` | PDF upload URL ve kitap durum endpoint'leri |
 | `tests/test_rate_limiter.py` | Redis tabanlı rate limiter davranışı |
 | `tests/test_ocr.py` | PDF doğrudan metin çıkarımı ve işlem çıktısı |
+| `tests/test_ocr_turkish.py` | Türkçe OCR karakter doğrulama ve config testi |
 | `tests/test_s3.py` | S3/MinIO yardımcı sınıfı için mock AWS testleri |
+
+## OCR Dil Desteği
+
+FlexiRead, Türkçe ve İngilizce OCR desteği sunar.
+
+### Desteklenen Diller
+- Türkçe (`tesseract-ocr-tur`)
+- İngilizce (Varsayılan)
+
+### Yeni Dil Ekleme
+Farklı diller eklemek için `Dockerfile` içindeki paket listesine ilgili Tesseract paketini eklemeniz yeterlidir:
+```dockerfile
+RUN apt-get install -y tesseract-ocr-<dil-kodu>
+```
 
 ## API Versioning Stratejisi
 
