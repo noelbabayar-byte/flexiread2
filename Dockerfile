@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     tesseract-ocr \
+    tesseract-ocr-tur \
     libtesseract-dev \
     git \
     && rm -rf /var/lib/apt/lists/*

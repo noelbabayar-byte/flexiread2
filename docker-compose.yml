@@ -122,6 +122,8 @@ services:
       DEBUG: "False"
       LOG_LEVEL: INFO
       ALLOWED_ORIGINS: http://localhost,http://localhost:5173
+      TESSERACT_CMD: /usr/bin/tesseract
+      OCR_LANGUAGE: tur,eng
     ports:
       - "8000:8000"
     networks:
@@ -163,6 +165,8 @@ services:
       APP_ENV: production
       DEBUG: "False"
       LOG_LEVEL: INFO
+      TESSERACT_CMD: /usr/bin/tesseract
+      OCR_LANGUAGE: tur,eng
     networks:
       - flexiread-network
     depends_on:
