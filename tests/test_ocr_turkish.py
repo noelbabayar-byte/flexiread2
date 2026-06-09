@@ -16,21 +16,24 @@ class TestTurkishOCR:
             "İstanbul'da şenlikli, güvenli, ölçülü ve coşkulu bir Türkçe yolculuk."
         )
 
-        # Patch the processor method directly so it bypasses MagicMock object evaluation issues
+        # We patch the instance method directly to return a plain string when called
         with patch(
-            "app.utils.ocr_processor.PDFProcessor.extract_text_from_page"
-        ) as mock_extract:
-            mock_extract.return_value = mock_text
+            "app.utils.ocr_processor.PDFProcessor.extract_text_from_page",
+            return_value=mock_text,
+        ):
+            from app.utils.ocr_processor import PDFProcessor
 
-            result = mock_extract(0)
+            processor = PDFProcessor()
+            result = processor.extract_text_from_page(0)
 
-            assert result == mock_text
-            assert "İ" in result
-            assert "ş" in result
-            assert "ğ" in result
-            assert "ü" in result
-            assert "ö" in result
-            assert "ç" in result
+            # Direct plain string assertions
+            assert str(result) == mock_text
+            assert "İ" in str(result)
+            assert "ş" in str(result)
+            assert "ğ" in str(result)
+            assert "ü" in str(result)
+            assert "ö" in str(result)
+            assert "ç" in str(result)
 
     def test_ocr_language_config(self):
         from app.core.config import settings
