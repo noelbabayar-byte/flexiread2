@@ -16,13 +16,12 @@ class TestTurkishOCR:
             "İstanbul'da şenlikli, güvenli, ölçülü ve coşkulu bir Türkçe yolculuk."
         )
 
-        # Patching the method directly at the module path ensures a clean string return value
+        # Patch the processor method directly so it bypasses MagicMock object evaluation issues
         with patch(
             "app.utils.ocr_processor.PDFProcessor.extract_text_from_page"
         ) as mock_extract:
             mock_extract.return_value = mock_text
 
-            # Simulate the exact same structural call
             result = mock_extract(0)
 
             assert result == mock_text
