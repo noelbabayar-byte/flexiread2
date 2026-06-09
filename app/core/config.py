@@ -4,10 +4,14 @@ Supports both local development and GitHub Codespaces environments
 """
 
 import os
+import shutil
+import logging
 import secrets
 from typing import Optional, List, Any
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator, ValidationInfo
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -345,6 +349,15 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development"""
         return self.APP_ENV in ["development", "codespaces"]
+
+    @field_validator("TESSERACT_CMD", mode="after")
+    @classmethod
+    def validate_tesseract(cls, v: str) -> str:
+        """Validate Tesseract command path"""
+        if not shutil.which(v):
+            logger.warning(f"Tesseract not found at {v}, falling back to 'tesseract'")
+            return "tesseract"
+        return v
 
 
 # Create global settings instance
