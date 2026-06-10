@@ -52,7 +52,7 @@ class JWTBlacklist:
             return bool(self.redis.exists(f"{self.prefix}{jti}"))
         except Exception as exc:  # pragma: no cover - infrastructure failure path
             logger.error("JWT blacklist check failed: %s", exc)
-            return True
+            return False  # FIX: Fail-open. Do not brick the app if Redis blinks
 
 
 jwt_blacklist = JWTBlacklist()

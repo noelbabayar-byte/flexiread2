@@ -88,9 +88,11 @@ class PDFProcessor:
             pix = None
             img = None
             try:
-                # Render page to image (300 DPI for better OCR)
+                # Render page to image (200 DPI for reduced memory, grayscale)
                 pix = page.get_pixmap(
-                    matrix=fitz.Matrix(300 / 72, 300 / 72), alpha=False
+                    matrix=fitz.Matrix(200 / 72, 200 / 72),  # Reduced from 300 to 200 DPI
+                    alpha=False,
+                    colorspace=fitz.CS_GRAY,                 # CRITICAL: Grayscale drops memory footprint 3x
                 )
                 img_data = pix.tobytes("png")
 
