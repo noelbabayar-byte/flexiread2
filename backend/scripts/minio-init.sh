@@ -9,7 +9,7 @@ BUCKET_NAME="${AWS_S3_BUCKET:-flexiread-dev}"
 FRONTEND_URL="${FRONTEND_URL:-http://localhost:5173}"
 
 echo "Waiting for MinIO at $MINIO_HOST..."
-until python3 -c "import urllib.request; urllib.request.urlopen('http://$MINIO_HOST/minio/health/live')" > /dev/null 2>&1; do
+until mc alias set local http://$MINIO_HOST $MINIO_ACCESS_KEY $MINIO_SECRET_KEY > /dev/null 2>&1; do
   echo "MinIO is not ready yet - waiting..."
   sleep 2
 done
