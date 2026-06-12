@@ -1,65 +1,28 @@
 {
   "name": "FlexiRead - PDF to Reflowable Text SaaS",
   "image": "mcr.microsoft.com/devcontainers/python:3.12-bullseye",
+  
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest"
+    },
     "ghcr.io/devcontainers/features/node:1": {
       "version": "22"
     }
   },
-  "forwardPorts": [5173, 8000, 5432, 6379, 9000, 9001],
-  "portsAttributes": {
-    "5173": {
-      "label": "Frontend (Vite)",
-      "onAutoForward": "openPreview"
-    },
-    "8000": {
-      "label": "FastAPI Backend",
-      "onAutoForward": "notify"
-    },
-    "5432": {
-      "label": "PostgreSQL",
-      "onAutoForward": "silent"
-    },
-    "6379": {
-      "label": "Redis",
-      "onAutoForward": "silent"
-    },
-    "9000": {
-      "label": "MinIO API",
-      "onAutoForward": "notify"
-    },
-    "9001": {
-      "label": "MinIO Console",
-      "onAutoForward": "notify"
-    }
-  },
+  
+  "forwardPorts": [5173, 8000, 9000, 9001],
+  
   "postCreateCommand": "bash .devcontainer/setup.sh",
+  
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
-        "ms-python.vscode-pylance",
-        "ms-python.debugpy",
-        "esbenp.prettier-vscode",
-        "dbaeumer.vscode-eslint",
-        "charliermarsh.ruff",
         "ms-azuretools.vscode-docker"
-      ],
-      "settings": {
-        "python.defaultInterpreterPath": "/usr/local/bin/python3",
-        "python.formatting.provider": "none",
-        "[python]": {
-          "editor.defaultFormatter": "charliermarsh.ruff",
-          "editor.formatOnSave": true
-        },
-        "[javascript]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode",
-          "editor.formatOnSave": true
-        },
-        "editor.formatOnSave": true
-      }
+      ]
     }
   },
+  
   "remoteUser": "vscode"
 }
