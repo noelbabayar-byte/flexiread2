@@ -1,12 +1,12 @@
 {
   "name": "FlexiRead - PDF to Reflowable Text SaaS",
   "image": "mcr.microsoft.com/devcontainers/python:3.12-bullseye",
-  ...
-}
 
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "version": "latest"
+      "version": "latest",
+      "moby": true,
+      "dockerDashComposeVersion": "v2"
     },
     "ghcr.io/devcontainers/features/node:1": {
       "version": "22"
@@ -28,5 +28,6 @@
     }
   },
 
-  "remoteUser": "vscode"
+  "remoteUser": "vscode",
+  "runArgs": ["--privileged", "--init"]
 }
