@@ -113,19 +113,11 @@ fi
 if command -v docker &> /dev/null; then
   echo "🐳 Starting Docker Compose services..."
   if [ -f docker-compose.codespaces.yml ]; then
-      docker compose -f docker-compose.codespaces.yml up -d || {
-        echo "⚠️ Warning: Docker Compose failed to start"
-        echo "You may need to start it manually"
-      }
-      
-      # Wait for services to be ready
-      echo "⏳ Waiting for services to start..."
-      sleep 15
-      
-      echo "🔄 Running database migrations..."
-      docker compose -f docker-compose.codespaces.yml exec -T api alembic upgrade head || {
-        echo "⚠️ Warning: Database migrations failed"
-      }
+      # Run in background to avoid blocking the setup
+      (docker compose -f docker-compose.codespaces.yml up -d && \
+       sleep 20 && \
+       docker compose -f docker-compose.codespaces.yml exec -T api alembic upgrade head) &
+      echo "🚀 Docker services are starting in background..."
   fi
 else
   echo "⚠️ Docker not available - skipping Docker Compose"
