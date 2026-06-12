@@ -36,32 +36,12 @@ if [ ! -f .env ]; then
     fi
 fi
 
-# Docker Compose Setup
-if command -v docker &> /dev/null; then
-    echo "🐳 Starting Docker Compose services..."
-
-    # Clean up any existing state
-    docker compose -f docker-compose.codespaces.yml down --remove-orphans 2>/dev/null || true
-
-    # Build and start services
-    docker compose -f docker-compose.codespaces.yml up --build -d
-
-    # Wait for services to be healthy
-    echo "⏳ Waiting for services to be ready..."
-    sleep 10
-
-    # Run migrations
-    echo "🔄 Running database migrations..."
-    docker compose -f docker-compose.codespaces.yml exec -T api alembic upgrade head || echo "⚠️ Migration failed, may need to run manually"
-
-    echo "✅ Setup complete!"
-    echo ""
-    echo "📋 Servisler:"
-    echo "   API:       http://localhost:8000"
-    echo "   Frontend:  http://localhost:5173"
-    echo "   MinIO:     http://localhost:9000 (console: 9001)"
-    echo "   PostgreSQL: localhost:5432"
-    echo "   Redis:     localhost:6379"
-else
-    echo "⚠️ Docker not available - skipping Docker Compose"
-fi
+echo "✅ Setup complete!"
+echo ""
+echo "📋 Manuel başlatma komutları:"
+echo "   1. PostgreSQL: docker run -d --name postgres -e POSTGRES_USER=flexiread -e POSTGRES_PASSWORD=flexiread_dev_password -e POSTGRES_DB=flexiread -p 5432:5432 postgres:15-alpine"
+echo "   2. Redis: docker run -d --name redis -p 6379:6379 redis:7-alpine redis-server --appendonly yes --requirepass flexiread_redis_dev"
+echo "   3. MinIO: docker run -d --name minio -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data --console-address ':9001'"
+echo "   4. API: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+echo "   5. Worker: celery -A app.core.celery_app worker --loglevel=info"
+echo "   6. Frontend: cd frontend && npm install && npm run dev"
