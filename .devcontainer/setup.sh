@@ -30,13 +30,12 @@ $SUDO apt-get install -y --no-install-recommends \
 # Verify Python is installed
 echo "🐍 Checking Python installation..."
 python3 --version
-pip3 --version
 
 # Install Python dependencies
 echo "📦 Installing Python dependencies..."
-pip3 install --upgrade pip setuptools wheel
+$SUDO pip3 install --upgrade pip setuptools wheel
 if [ -f requirements.txt ]; then
-    pip3 install -r requirements.txt || {
+    $SUDO pip3 install -r requirements.txt || {
       echo "⚠️ Warning: Some Python packages failed to install"
       echo "Continuing with setup..."
     }
@@ -72,6 +71,43 @@ mkdir -p logs
 mkdir -p uploads
 mkdir -p migrations
 
+# Create .env file if it doesn't exist
+if [ ! -f .env ]; then
+  echo "📝 Creating .env file from .env.example..."
+  if [ -f .env.example ]; then
+    cp .env.example .env
+  else
+    echo "⚠️ .env.example not found, creating basic .env"
+    cat > .env << 'EOF'
+APP_ENV=development
+DATABASE_URL=postgresql://flexiread:flexiread_dev_password@db:5432/flexiread
+REDIS_URL=redis://:flexiread_redis_dev@redis:6379/0
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
+AWS_S3_BUCKET=flexiread-dev
+JWT_SECRET_KEY=change-me-in-production-min-32-chars-long
+EOF
+  fi
+fi
+
+# Customize for Codespaces after .env is guaranteed to exist
+if [ -f .env ]; then
+  echo "⚙️ Customizing .env for Codespaces..."
+  sed -i "s/APP_ENV=development/APP_ENV=codespaces/g" .env
+  sed -i "s/DEBUG=True/DEBUG=True/g" .env
+  # Add CODESPACES=true and CODESPACE_NAME if available
+  if [ -n "$CODESPACES" ]; then
+    if ! grep -q "CODESPACES=" .env; then
+      echo "CODESPACES=true" >> .env
+    fi
+  fi
+  if [ -n "$CODESPACE_NAME" ]; then
+    if ! grep -q "CODESPACE_NAME=" .env; then
+      echo "CODESPACE_NAME=$CODESPACE_NAME" >> .env
+    fi
+  fi
+fi
+
 # Start Docker Compose services
 if command -v docker &> /dev/null; then
   echo "🐳 Starting Docker Compose services..."
@@ -87,28 +123,6 @@ if command -v docker &> /dev/null; then
   fi
 else
   echo "⚠️ Docker not available - skipping Docker Compose"
-fi
-
-# Create .env file if it doesn't exist
-if [ ! -f .env ]; then
-  echo "📝 Creating .env file from .env.example..."
-  if [ -f .env.example ]; then
-    cp .env.example .env
-    # Customize for Codespaces
-    sed -i "s/APP_ENV=development/APP_ENV=codespaces/g" .env
-    sed -i "s/DEBUG=True/DEBUG=True/g" .env
-  else
-    echo "⚠️ .env.example not found, creating basic .env"
-    cat > .env << 'EOF'
-APP_ENV=codespaces
-DATABASE_URL=postgresql://flexiread:flexiread_dev_password@db:5432/flexiread
-REDIS_URL=redis://:flexiread_redis_dev@redis:6379/0
-AWS_ACCESS_KEY_ID=minioadmin
-AWS_SECRET_ACCESS_KEY=minioadmin
-AWS_S3_BUCKET=flexiread-dev
-JWT_SECRET_KEY=change-me-in-production-min-32-chars-long
-EOF
-  fi
 fi
 
 echo "✅ Setup complete!"
