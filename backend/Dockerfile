@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-tur \
     libtesseract-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
