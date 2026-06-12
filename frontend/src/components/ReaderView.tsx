@@ -82,7 +82,12 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 
       if (contentDiv) {
         contentDiv.innerHTML = '';
+        if (pageElements.length === 0) {
+          console.warn('No pages to render initially');
+        }
         pageElements.forEach((el) => contentDiv.appendChild(el));
+      } else {
+        console.error('Reader content div not found in DOM');
       }
 
       // Listen to progress changes
