@@ -5,9 +5,9 @@ services:
     image: postgres:15-alpine
     container_name: flexiread-db
     environment:
-      POSTGRES_USER: ${DB_USER:-flexiread}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-flexiread_dev_password}
-      POSTGRES_DB: ${DB_NAME:-flexiread}
+      POSTGRES_USER: flexiread
+      POSTGRES_PASSWORD: flexiread_dev_password
+      POSTGRES_DB: flexiread
     ports:
       - "5432:5432"
     volumes:
@@ -16,15 +16,15 @@ services:
       - flexiread-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U flexiread"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     container_name: flexiread-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-flexiread_redis_dev}
+    command: redis-server --appendonly yes --requirepass flexiread_redis_dev
     ports:
       - "6379:6379"
     volumes:
@@ -32,10 +32,10 @@ services:
     networks:
       - flexiread-network
     healthcheck:
-      test: ["CMD", "sh", "-c", "redis-cli -a ${REDIS_PASSWORD:-flexiread_redis_dev} ping"]
-      interval: 10s
+      test: ["CMD", "sh", "-c", "redis-cli -a flexiread_redis_dev ping"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     restart: unless-stopped
 
   minio:
@@ -43,8 +43,8 @@ services:
     container_name: flexiread-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -54,22 +54,21 @@ services:
       - flexiread-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     restart: unless-stopped
 
   minio-init:
     image: minio/mc:latest
     container_name: flexiread-minio-init
     volumes:
-      - .:/workspace:ro
-    entrypoint: ["/bin/sh", "-c", "chmod +x /workspace/backend/scripts/minio-init.sh && /workspace/backend/scripts/minio-init.sh"]
-    working_dir: /workspace
+      - ./backend/scripts/minio-init.sh:/usr/local/bin/minio-init.sh
+    entrypoint: ["/bin/sh", "/usr/local/bin/minio-init.sh"]
     environment:
-      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-flexiread-dev}
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      AWS_S3_BUCKET: flexiread-dev
     depends_on:
       minio:
         condition: service_healthy
@@ -84,16 +83,26 @@ services:
       target: development
     container_name: flexiread-api
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-flexiread}:${DB_PASSWORD:-flexiread_dev_password}@db:5432/${DB_NAME:-flexiread}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/0
-      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/1
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-flexiread-dev}
+      DATABASE_URL: postgresql://flexiread:flexiread_dev_password@db:5432/flexiread
+      REDIS_URL: redis://:flexiread_redis_dev@redis:6379/0
+      CELERY_BROKER_URL: redis://:flexiread_redis_dev@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:flexiread_redis_dev@redis:6379/1
+      JWT_SECRET_KEY: dev-secret-key-change-in-production-min-32-chars-long
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_HOURS: 24
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_S3_BUCKET: flexiread-dev
+      AWS_S3_REGION: us-east-1
       AWS_S3_INTERNAL_ENDPOINT_URL: http://minio:9000
-      APP_ENV: codespaces
+      AWS_S3_PUBLIC_ENDPOINT_URL: http://localhost:9000
+      APP_NAME: FlexiRead
+      APP_ENV: development
       DEBUG: "True"
+      LOG_LEVEL: DEBUG
+      ALLOWED_ORIGINS: "*"
+      TESSERACT_CMD: /usr/bin/tesseract
+      OCR_LANGUAGE: tur,eng
     ports:
       - "8000:8000"
     volumes:
@@ -107,11 +116,7 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
 
   worker:
@@ -120,18 +125,26 @@ services:
       dockerfile: Dockerfile
       target: development
     container_name: flexiread-worker
+    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=1
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-flexiread}:${DB_PASSWORD:-flexiread_dev_password}@db:5432/${DB_NAME:-flexiread}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/0
-      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/0
-      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-flexiread_redis_dev}@redis:6379/1
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-flexiread-dev}
+      DATABASE_URL: postgresql://flexiread:flexiread_dev_password@db:5432/flexiread
+      REDIS_URL: redis://:flexiread_redis_dev@redis:6379/0
+      CELERY_BROKER_URL: redis://:flexiread_redis_dev@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:flexiread_redis_dev@redis:6379/1
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_S3_BUCKET: flexiread-dev
+      AWS_S3_REGION: us-east-1
       AWS_S3_INTERNAL_ENDPOINT_URL: http://minio:9000
+      AWS_S3_PUBLIC_ENDPOINT_URL: http://localhost:9000
+      APP_NAME: FlexiRead
+      APP_ENV: development
+      DEBUG: "True"
+      LOG_LEVEL: DEBUG
+      TESSERACT_CMD: /usr/bin/tesseract
+      OCR_LANGUAGE: tur,eng
     volumes:
       - .:/app
-    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=1
     networks:
       - flexiread-network
     depends_on:
