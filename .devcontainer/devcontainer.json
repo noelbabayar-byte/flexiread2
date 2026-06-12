@@ -1,6 +1,8 @@
 {
   "name": "FlexiRead - PDF to Reflowable Text SaaS",
   "image": "mcr.microsoft.com/devcontainers/python:3.12-bullseye",
+  ...
+}
 
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {
