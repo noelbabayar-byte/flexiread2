@@ -20,6 +20,7 @@ $SUDO apt-get install -y --no-install-recommends \
   build-essential \
   libpq-dev \
   tesseract-ocr \
+  tesseract-ocr-tur \
   libtesseract-dev \
   poppler-utils \
   redis-server \
@@ -119,7 +120,12 @@ if command -v docker &> /dev/null; then
       
       # Wait for services to be ready
       echo "⏳ Waiting for services to start..."
-      sleep 10
+      sleep 15
+      
+      echo "🔄 Running database migrations..."
+      docker compose -f docker-compose.codespaces.yml exec -T api alembic upgrade head || {
+        echo "⚠️ Warning: Database migrations failed"
+      }
   fi
 else
   echo "⚠️ Docker not available - skipping Docker Compose"
