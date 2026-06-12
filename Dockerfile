@@ -69,8 +69,8 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser && \
     chown -R appuser:appuser /app
 USER appuser
 
-# Health check using python urllib
-    HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Default command (can be overridden)
@@ -94,7 +94,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser && \
 USER appuser
 
 # Health check
-    HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Production command (gunicorn + uvicorn workers)
