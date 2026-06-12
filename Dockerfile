@@ -27,6 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-tur \
     libtesseract-dev \
+    libmagic1 \
+    file \
     git \
     curl \
     && rm -rf /var/lib/apt/lists/*
