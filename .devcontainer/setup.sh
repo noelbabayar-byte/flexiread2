@@ -34,9 +34,9 @@ python3 --version
 
 # Install Python dependencies
 echo "📦 Installing Python dependencies..."
-$SUDO pip3 install --upgrade pip setuptools wheel
+pip3 install --user --upgrade pip setuptools wheel
 if [ -f requirements.txt ]; then
-    $SUDO pip3 install -r requirements.txt || {
+    pip3 install --user -r requirements.txt || {
       echo "⚠️ Warning: Some Python packages failed to install"
       echo "Continuing with setup..."
     }
