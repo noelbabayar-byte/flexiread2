@@ -27,12 +27,12 @@ celery_app.conf.update(
     task_track_started=True,  # Track when task starts
     task_time_limit=3600,  # Hard limit: 1 hour
     task_soft_time_limit=3300,  # Soft limit: 55 minutes (warning)
-    task_acks_late=True,                  # Ack only after successful execution
-    task_reject_on_worker_lost=True,       # Re-queue task if worker dies mid-way
+    task_acks_late=True,  # Ack only after successful execution
+    task_reject_on_worker_lost=True,  # Re-queue task if worker dies mid-way
     broker_transport_options={
-        'visibility_timeout': 43200,      # 12 hours timeout to prevent duplicate tasks
+        "visibility_timeout": 43200,  # 12 hours timeout to prevent duplicate tasks
     },
-    result_expires=86400,                 # Auto-expire results in 24 hours to save memory
+    result_expires=86400,  # Auto-expire results in 24 hours to save memory
     # Worker configuration
     worker_prefetch_multiplier=1,  # Process one task at a time
     worker_max_tasks_per_child=1000,  # Restart worker after 1000 tasks (prevent memory leak)

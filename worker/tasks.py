@@ -111,7 +111,9 @@ def progress_callback_factory(book_id: str, db_session: Session):
         if current_page % PROGRESS_BATCH_SIZE == 0 or current_page == total_pages:
             # FIX: Open a fresh, isolated session for progress tracking
             with get_task_db() as progress_db:
-                batch_update_db_progress(progress_db, book_id, current_page, total_pages)
+                batch_update_db_progress(
+                    progress_db, book_id, current_page, total_pages
+                )
 
     return callback
 

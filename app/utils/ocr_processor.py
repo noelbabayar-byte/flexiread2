@@ -90,9 +90,11 @@ class PDFProcessor:
             try:
                 # Render page to image (200 DPI for reduced memory, grayscale)
                 pix = page.get_pixmap(
-                    matrix=fitz.Matrix(200 / 72, 200 / 72),  # Reduced from 300 to 200 DPI
+                    matrix=fitz.Matrix(
+                        200 / 72, 200 / 72
+                    ),  # Reduced from 300 to 200 DPI
                     alpha=False,
-                    colorspace=fitz.csGRAY,                  # CRITICAL: Grayscale drops memory footprint 3x
+                    colorspace=fitz.csGRAY,  # CRITICAL: Grayscale drops memory footprint 3x
                 )
                 img_data = pix.tobytes("png")
 
@@ -101,7 +103,7 @@ class PDFProcessor:
 
                 # Run Tesseract OCR
                 # FIX: Tesseract expects languages separated by '+' not ','
-                ocr_lang = settings.OCR_LANGUAGE.replace(',', '+')
+                ocr_lang = settings.OCR_LANGUAGE.replace(",", "+")
                 text = pytesseract.image_to_string(
                     img,
                     lang=ocr_lang,
