@@ -165,6 +165,31 @@ def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
             summary = result.get("summary", {})
             ocr_pages = summary.get("ocr_pages", 0)
 
+            # Step 3b: Enforce OCR quota. The cost is the number of OCR'd pages,
+            # which is only known after processing. If the user cannot cover it,
+            # fail without delivering content and without consuming quota. This
+            # is a permanent condition, so do NOT retry.
+            user = db.query(User).filter(User.id == user_id).first()
+            if user and not user.has_quota(ocr_pages):
+                logger.warning(
+                    f"Insufficient OCR quota: book={book_id}, needs={ocr_pages}, "
+                    f"has={user.ocr_quota_remaining}"
+                )
+                book.mark_failed(
+                    f"Insufficient OCR quota: needs {ocr_pages} pages, "
+                    f"{user.ocr_quota_remaining} remaining."
+                )
+                db.commit()
+                redis_manager.redis.delete(f"book_progress:{book_id}")
+                if local_pdf_path and os.path.exists(local_pdf_path):
+                    os.unlink(local_pdf_path)
+                return {
+                    "status": "failed",
+                    "reason": "insufficient_quota",
+                    "book_id": book_id,
+                    "ocr_pages": ocr_pages,
+                }
+
             # Step 4: Upload processed content to S3
             logger.info("Uploading processed content to S3...")
             content_s3_key = f"processed/{user_id}/{book_id}/content.json"
@@ -179,8 +204,7 @@ def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
             book.total_pages = summary.get("total_pages", 0)
             book.processed_pages = book.total_pages
 
-            # Update user quota
-            user = db.query(User).filter(User.id == user_id).first()
+            # Consume quota for the OCR'd pages (quota was verified in Step 3b).
             if user:
                 user.consume_quota(ocr_pages)
 

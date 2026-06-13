@@ -187,8 +187,13 @@ async def logout(
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(request: RefreshTokenRequest):
-    """Exchange a valid refresh token for a new access token."""
+async def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
+    """Exchange a valid refresh token for a new access token.
+
+    Validates the refresh token, ensures it has not been revoked, confirms the
+    user still exists and is active, then rotates the refresh token (the old one
+    is blacklisted so it can no longer be reused).
+    """
     payload = security_manager.verify_token(request.refresh_token)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(
@@ -205,15 +210,33 @@ async def refresh_token(request: RefreshTokenRequest):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Ensure the user still exists and is allowed to authenticate.
+    user = db.query(User).filter(User.id == subject).first()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Rotate: revoke the presented refresh token so it cannot be replayed.
+    old_jti = payload.get("jti")
+    old_exp = payload.get("exp")
+    if old_jti and old_exp:
+        jwt_blacklist.blacklist_token(
+            old_jti, datetime.fromtimestamp(old_exp, tz=timezone.utc)
+        )
+
     access_token_expires = timedelta(hours=settings.JWT_EXPIRATION_HOURS)
     access_token = security_manager.create_access_token(
         data={"sub": subject},
         expires_delta=access_token_expires,
     )
+    new_refresh_token = security_manager.create_refresh_token(data={"sub": subject})
 
     return TokenResponse(
         access_token=access_token,
-        refresh_token=request.refresh_token,
+        refresh_token=new_refresh_token,
         token_type="bearer",
         expires_in=settings.JWT_EXPIRATION_HOURS * 3600,
     )

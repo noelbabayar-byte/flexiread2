@@ -7,7 +7,7 @@ import json
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, update
 import redis
 from app.core.database import get_db
 from app.core.config import settings
@@ -251,20 +251,29 @@ async def process_book(
                 detail="Not authorized to process this book",
             )
 
-        # Step 4: Check book status
-        if book.status == BookStatus.PROCESSING:
-            logger.warning(f"Book already processing: {book_id}")
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Book is already being processed",
+        # Step 4: Atomically claim the book for processing.
+        # A plain check-then-set is racy: two concurrent requests can both read
+        # PENDING and enqueue duplicate tasks. This conditional UPDATE only
+        # transitions PENDING/FAILED -> PROCESSING and lets the database arbitrate.
+        claim = db.execute(
+            update(Book)
+            .where(
+                Book.id == book_uuid,
+                Book.status.in_([BookStatus.PENDING, BookStatus.FAILED]),
             )
+            .values(status=BookStatus.PROCESSING)
+        )
+        db.commit()
 
-        if book.status == BookStatus.COMPLETED:
-            logger.warning(f"Book already completed: {book_id}")
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Book has already been processed",
-            )
+        if claim.rowcount == 0:
+            # The claim failed: the book is already PROCESSING or COMPLETED.
+            db.refresh(book)
+            if book.status == BookStatus.COMPLETED:
+                detail = "Book has already been processed"
+            else:
+                detail = "Book is already being processed"
+            logger.warning(f"Could not claim book {book_id}: status={book.status}")
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
         # Step 5: Trigger Celery task
         s3_key = f"uploads/{current_user.id}/{book_id}/{book.original_filename}"
@@ -449,11 +458,32 @@ async def get_book_content(
                 detail="Content not available",
             )
 
-        # For now, return book metadata with S3 URL
-        # In production, you might fetch from S3 and return full content
+        # Step 5: Fetch the processed JSON content from S3 and return it.
+        # parsed_content_url is an s3:// URL; strip the scheme+bucket to get the key.
+        bucket_prefix = f"s3://{settings.AWS_S3_BUCKET}/"
+        content_key = book.parsed_content_url
+        if content_key.startswith(bucket_prefix):
+            content_key = content_key[len(bucket_prefix) :]
+
+        content = s3_storage.download_json(content_key)
+        if content is None:
+            logger.error(f"Failed to fetch content from S3: {content_key}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve book content",
+            )
+
         logger.info(f"Content retrieved: {book_id}")
 
-        return BookContentResponse.model_validate(book, from_attributes=True)
+        return BookContentResponse(
+            id=book.id,
+            title=book.title,
+            status=book.status,
+            total_pages=book.total_pages,
+            metadata=content.get("metadata"),
+            summary=content.get("summary"),
+            pages=content.get("pages"),
+        )
 
     except HTTPException:
         raise
