@@ -69,11 +69,13 @@ async def list_books(
     current_page = (skip // limit) + 1 if limit > 0 else 1
 
     return {
-	"items": [BookStatusResponse.model_validate(b, from_attributes=True) for b in books],
-	"total": total,
-	"page": current_page,
-	"size": limit,
-	}
+        "items": [
+            BookStatusResponse.model_validate(b, from_attributes=True) for b in books
+        ],
+        "total": total,
+        "page": current_page,
+        "size": limit,
+    }
 
 
 @router.post("/upload-url", response_model=PresignedURLResponse)

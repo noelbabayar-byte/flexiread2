@@ -2,6 +2,7 @@
 Authentication endpoints: Login, Register, Logout, Refresh.
 Handles user authentication with JWT tokens.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -26,6 +27,7 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["auth"])
+
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
@@ -72,6 +74,7 @@ async def register(request: UserRegisterRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed",
         )
+
 
 @router.post("/login", response_model=TokenResponse)
 async def login(request: UserLoginRequest, db: Session = Depends(get_db)):
@@ -124,6 +127,7 @@ async def login(request: UserLoginRequest, db: Session = Depends(get_db)):
             detail="Login failed",
         )
 
+
 @router.post("/logout")
 async def logout(
     current_user: User = Depends(get_current_user),
@@ -148,6 +152,7 @@ async def logout(
 
     logger.info("User logged out successfully: %s", current_user.email)
     return {"message": "Logged out successfully"}
+
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):

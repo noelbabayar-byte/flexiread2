@@ -2,6 +2,7 @@
 Main FastAPI application entry point.
 Registers all routers and configures middleware.
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
@@ -24,10 +25,14 @@ allowed_origins = settings.get_allowed_origins_list()
 
 if settings.is_production():
     if not allowed_origins:
-        logger.critical("CORS Security Failure: ALLOWED_ORIGINS must be set in production.")
+        logger.critical(
+            "CORS Security Failure: ALLOWED_ORIGINS must be set in production."
+        )
         raise RuntimeError("ALLOWED_ORIGINS must be set in production")
     if "*" in allowed_origins:
-        logger.critical("CORS Security Failure: Wildcard '*' origins are prohibited in production.")
+        logger.critical(
+            "CORS Security Failure: Wildcard '*' origins are prohibited in production."
+        )
         raise RuntimeError("Wildcard CORS origins are not allowed in production")
 
 app.add_middleware(
@@ -40,16 +45,20 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api/v1")
 
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "flexiread-api"}
+
 
 @app.get("/")
 def root():
     return {"message": "FlexiRead API", "version": "1.0.0", "docs": "/docs"}
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",

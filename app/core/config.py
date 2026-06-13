@@ -217,7 +217,9 @@ class Settings(BaseSettings):
 
         data = info.data
         db_user = data.get("DB_USER", "flexiread")
-        db_password = quote(str(data.get("DB_PASSWORD", "flexiread_dev_password")), safe="")
+        db_password = quote(
+            str(data.get("DB_PASSWORD", "flexiread_dev_password")), safe=""
+        )
         db_host = data.get("DB_HOST", "db")
         db_port = data.get("DB_PORT", 5432)
         db_name = data.get("DB_NAME", "flexiread")
@@ -232,7 +234,9 @@ class Settings(BaseSettings):
             return v
 
         data = info.data
-        redis_password = quote(str(data.get("REDIS_PASSWORD", "flexiread_redis_dev")), safe="")
+        redis_password = quote(
+            str(data.get("REDIS_PASSWORD", "flexiread_redis_dev")), safe=""
+        )
         redis_host = data.get("REDIS_HOST", "redis")
         redis_port = data.get("REDIS_PORT", 6379)
         redis_db = data.get("REDIS_DB", 0)

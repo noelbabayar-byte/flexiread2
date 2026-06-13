@@ -1,6 +1,7 @@
 """
 FastAPI dependencies for authentication and authorization.
 """
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -13,6 +14,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 security = HTTPBearer(auto_error=False)
+
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),

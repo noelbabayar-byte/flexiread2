@@ -236,9 +236,13 @@ def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
                     logger.warning(f"Failed to cleanup temp file: {cleanup_error}")
 
             if self.request.retries >= self.max_retries:
-                logger.critical(f"Max retries reached for book {book_id}. Marking as FAILED.")
+                logger.critical(
+                    f"Max retries reached for book {book_id}. Marking as FAILED."
+                )
                 try:
-                    failed_book = db.query(Book).filter(Book.id == UUID(book_id)).first()
+                    failed_book = (
+                        db.query(Book).filter(Book.id == UUID(book_id)).first()
+                    )
                     if failed_book:
                         failed_book.mark_failed(str(e))
                         db.commit()
@@ -271,10 +275,14 @@ def cleanup_old_books():
             for book in old_books:
                 try:
                     if book.original_pdf_url:
-                        s3_key = book.original_pdf_url.replace(f"s3://{settings.AWS_S3_BUCKET}/", "")
+                        s3_key = book.original_pdf_url.replace(
+                            f"s3://{settings.AWS_S3_BUCKET}/", ""
+                        )
                         s3_storage.delete_file(s3_key)
                     if book.parsed_content_url:
-                        s3_key = book.parsed_content_url.replace(f"s3://{settings.AWS_S3_BUCKET}/", "")
+                        s3_key = book.parsed_content_url.replace(
+                            f"s3://{settings.AWS_S3_BUCKET}/", ""
+                        )
                         s3_storage.delete_file(s3_key)
                     db.delete(book)
                 except Exception as e:
@@ -300,7 +308,9 @@ def reset_monthly_quotas():
                     user.ocr_quota_remaining = settings.PRO_TIER_MONTHLY_QUOTA
                 else:
                     user.ocr_quota_remaining = settings.FREE_TIER_MONTHLY_QUOTA
-                user.ocr_quota_reset_date = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+                user.ocr_quota_reset_date = datetime(
+                    now.year, now.month, 1, tzinfo=timezone.utc
+                )
             db.commit()
             return {"status": "success", "users_reset": len(users)}
         except Exception as e:
