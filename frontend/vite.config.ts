@@ -4,6 +4,8 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Relative base so assets load correctly behind Codespaces proxies.
+  base: './',
   plugins: [react()],
   resolve: {
     alias: {
