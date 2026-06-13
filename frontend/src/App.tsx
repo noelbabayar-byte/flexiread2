@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ReaderView } from './components/ReaderView';
 import { BookContent } from './reader/types';
 
@@ -70,9 +70,10 @@ const mockBookContent: BookContent = {
 function App() {
   const [progress, setProgress] = useState({ pageNumber: 1, blockIndex: 0 });
 
-  const handleProgressChange = (pageNumber: number, blockIndex: number) => {
+  // Stabilize callback so ReaderView's useEffect doesn't re-run on every render.
+  const handleProgressChange = useCallback((pageNumber: number, blockIndex: number) => {
     setProgress({ pageNumber, blockIndex });
-  };
+  }, []);
 
   return (
     <div className="App">
