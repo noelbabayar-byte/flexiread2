@@ -3,7 +3,7 @@ Pydantic schemas for book endpoints.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime
 from uuid import UUID
 from app.models.book import BookStatus
@@ -43,13 +43,16 @@ class BookStatusResponse(BaseModel):
 
 
 class BookContentResponse(BaseModel):
-    """Book content response."""
+    """Book content response, including the processed page content from S3."""
 
     id: UUID
     title: str
     status: BookStatus
     total_pages: int
     content_summary: Optional[str] = None
+    metadata: Optional[dict[str, Any]] = None
+    summary: Optional[dict[str, Any]] = None
+    pages: Optional[list[dict[str, Any]]] = None
 
     class Config:
         from_attributes = True

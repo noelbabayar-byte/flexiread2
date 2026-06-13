@@ -16,10 +16,11 @@ logger = logging.getLogger(__name__)
 class S3Storage:
     """S3 storage client for PDF and content management."""
 
-    _client = None  # Class-level attribute to hold the singleton client
+    _client = None  # Internal client (Docker network) - upload/download
+    _public_client = None  # Public client (browser-reachable) - presigned URLs
 
     def __init__(self):
-        """Initialize S3 client with AWS credentials, ensuring singleton pattern."""
+        """Initialize S3 clients with AWS credentials, ensuring singleton pattern."""
         if S3Storage._client is None:
             S3Storage._client = boto3.client(
                 "s3",
@@ -28,8 +29,26 @@ class S3Storage:
                 region_name=settings.AWS_S3_REGION,
                 endpoint_url=settings.AWS_S3_INTERNAL_ENDPOINT_URL,  # For MinIO
             )
-            logger.info("S3 client initialized.")
+            logger.info("S3 internal client initialized.")
+
+        # Presigned URLs must point to an endpoint the browser can reach, not the
+        # Docker-internal hostname. Sign them with the public endpoint.
+        if S3Storage._public_client is None:
+            public_endpoint = (
+                settings.AWS_S3_PUBLIC_ENDPOINT_URL
+                or settings.AWS_S3_INTERNAL_ENDPOINT_URL
+            )
+            S3Storage._public_client = boto3.client(
+                "s3",
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_S3_REGION,
+                endpoint_url=public_endpoint,
+            )
+            logger.info("S3 public client initialized: %s", public_endpoint)
+
         self.client = S3Storage._client
+        self.public_client = S3Storage._public_client
         self.bucket = settings.AWS_S3_BUCKET
 
     def upload_file(
@@ -134,7 +153,8 @@ class S3Storage:
             Presigned URL if successful, None otherwise
         """
         try:
-            url = self.client.generate_presigned_url(
+            # Sign with the public client so the URL host is browser-reachable.
+            url = self.public_client.generate_presigned_url(
                 "put_object",
                 Params={
                     "Bucket": self.bucket,
@@ -146,6 +166,27 @@ class S3Storage:
             return url
         except ClientError as e:
             logger.error(f"Presigned URL generation failed: {e}")
+            return None
+
+    def download_json(self, s3_key: str) -> Optional[Dict[str, Any]]:
+        """
+        Download and parse a JSON object from S3.
+
+        Args:
+            s3_key: S3 object key
+
+        Returns:
+            Parsed dict if successful, None otherwise
+        """
+        try:
+            response = self.client.get_object(Bucket=self.bucket, Key=s3_key)
+            body = response["Body"].read().decode("utf-8")
+            return json.loads(body)
+        except ClientError as e:
+            logger.error(f"S3 JSON download failed: {e}")
+            return None
+        except json.JSONDecodeError as e:
+            logger.error(f"S3 JSON parse failed for {s3_key}: {e}")
             return None
 
 

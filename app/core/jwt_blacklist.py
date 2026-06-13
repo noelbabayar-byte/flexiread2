@@ -52,7 +52,11 @@ class JWTBlacklist:
             return bool(self.redis.exists(f"{self.prefix}{jti}"))
         except Exception as exc:  # pragma: no cover - infrastructure failure path
             logger.error("JWT blacklist check failed: %s", exc)
-            return False  # FIX: Fail-open. Do not brick the app if Redis blinks
+            # Fail-closed: if we cannot confirm a token is clean, treat it as
+            # revoked. This matches the security intent in the module docstring;
+            # a Redis outage already degrades the whole app (broker, rate limiter,
+            # progress) so denying tokens does not uniquely brick it.
+            return True
 
 
 jwt_blacklist = JWTBlacklist()
