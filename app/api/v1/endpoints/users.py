@@ -13,7 +13,7 @@ from app.core.config import settings
 from app.models.user import User
 from app.schemas.user import UserDetailResponse, UserResponse
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(tags=["users"])
 
 
 class QuotaResponse(BaseModel):

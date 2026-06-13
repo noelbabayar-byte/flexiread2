@@ -29,7 +29,7 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/books", tags=["books"])
+router = APIRouter(tags=["books"])
 
 # Redis client for progress tracking
 redis_client = redis.from_url(settings.REDIS_URL)
