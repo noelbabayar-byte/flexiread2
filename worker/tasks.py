@@ -7,6 +7,7 @@ import os
 import tempfile
 import logging
 import json
+from uuid import UUID
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
@@ -119,31 +120,32 @@ def progress_callback_factory(book_id: str, db_session: Session):
 
 
 @celery_app.task(
-    name="process_pdf_task", bind=True, max_retries=3, default_retry_delay=60
+name="process_pdf_task", bind=True, max_retries=3, default_retry_delay=60
 )
 def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
-    """
-    Main Celery task for PDF processing and OCR.
-    Uses Unit of Work pattern for session management and Smart Retry strategy.
-    """
-    local_pdf_path = None
-    parsed_content_url = None
-    content_s3_key = None
+local_pdf_path = None
+parsed_content_url = None
+content_s3_key = None
+with get_task_db() as db:
+    try:
+        logger.info(
+            f"Starting PDF processing: book_id={book_id}, attempt={self.request.retries}"
+        )
 
-    with get_task_db() as db:
-        try:
-            logger.info(
-                f"Starting PDF processing: book_id={book_id}, attempt={self.request.retries}"
-            )
+        book_uuid = UUID(book_id)
+        book = db.query(Book).filter(Book.id == book_uuid).first()
+        if not book:
+            raise ValueError(f"Book not found: {book_id}")
 
-            # Fetch book from database
-            book = db.query(Book).filter(Book.id == book_id).first()
-            if not book:
-                raise ValueError(f"Book not found: {book_id}")
+        book.status = BookStatus.PROCESSING
+        db.commit()
 
-            # Mark as processing (Reset status on each retry)
-            book.status = BookStatus.PROCESSING
-            db.commit()
+        # ... (kalan kod aynı kalır)
+
+        user_uuid = UUID(user_id)
+        user = db.query(User).filter(User.id == user_uuid).first()
+        
+        # ... (kalan kod aynı kalır)
 
             # Step 1: Download PDF from S3 to temporary file
             logger.info(f"Downloading PDF from S3: {s3_pdf_key}")
