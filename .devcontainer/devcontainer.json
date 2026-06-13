@@ -1,12 +1,7 @@
 {
-  "name": "FlexiRead Full Stack",
+  "name": "FlexiRead",
   "image": "mcr.microsoft.com/devcontainers/universal:2-linux",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "version": "latest",
-      "moby": true,
-      "dockerDashComposeVersion": "v2"
-    },
     "ghcr.io/devcontainers/features/node:1": {
       "version": "lts"
     },
@@ -36,9 +31,5 @@
       ]
     }
   },
-  "remoteUser": "root",
-  "containerEnv": {
-    "DOCKER_BUILDKIT": "1",
-    "COMPOSE_DOCKER_CLI_BUILD": "1"
-  }
+  "remoteUser": "root"
 }
