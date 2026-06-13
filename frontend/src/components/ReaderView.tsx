@@ -9,7 +9,7 @@
  * - State changes (font, theme) are passed to Engine via callbacks
  */
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ReaderEngine, initializeEngine, getEngine } from '@/reader/engine';
 import { ReaderStateManager, initializeStateManager, getStateManager } from '@/reader/state';
 import { BookContent, PageData, ReadingPreferences } from '@/reader/types';
@@ -34,6 +34,9 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ReaderEngine | null>(null);
   const stateManagerRef = useRef<ReaderStateManager | null>(null);
+  // Ref to avoid re-running the init effect when the parent passes a new callback reference.
+  const onProgressChangeRef = useRef(onProgressChange);
+  onProgressChangeRef.current = onProgressChange;
 
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -90,10 +93,12 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         console.error('Reader content div not found in DOM');
       }
 
-      // Listen to progress changes
+      // Listen to progress changes – read latest callback from ref so the
+      // effect doesn't re-run when the parent passes a new function reference.
       stateManager.onProgressChange((progress) => {
-        if (onProgressChange) {
-          onProgressChange(progress.currentPageNumber, progress.currentBlockIndex);
+        const cb = onProgressChangeRef.current;
+        if (cb) {
+          cb(progress.currentPageNumber, progress.currentBlockIndex);
         }
       });
 
@@ -117,7 +122,10 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         engineRef.current.destroy();
       }
     };
-  }, [bookId, bookContent, onProgressChange]);
+  // Intentionally omit onProgressChange from deps – we read the latest
+  // callback via onProgressChangeRef so parent re-renders don't destroy
+  // and recreate the engine.
+  }, [bookId, bookContent]);
 
   /**
    * Handle settings panel changes
