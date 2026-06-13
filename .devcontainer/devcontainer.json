@@ -1,27 +1,60 @@
 {
-  "name": "FlexiRead - PDF to Reflowable Text SaaS",
-  "image": "mcr.microsoft.com/devcontainers/python:3.12-bullseye",
-
+  "name": "FlexiRead Full Stack",
+  "image": "mcr.microsoft.com/devcontainers/universal:2-linux",
   "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true,
+      "dockerDashComposeVersion": "v2"
+    },
     "ghcr.io/devcontainers/features/node:1": {
-      "version": "22"
+      "version": "lts"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
     }
   },
-
-  "forwardPorts": [5173, 8000, 9000, 9001, 5432, 6379],
-
-  "postCreateCommand": "bash .devcontainer/setup.sh",
-
+  "runArgs": ["--init", "--privileged"],
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "bash .devcontainer/post-start.sh",
+  "forwardPorts": [8000, 5173, 5432, 6379, 9000, 9001],
+  "portsAttributes": {
+    "8000": { "label": "FastAPI", "onAutoForward": "notify" },
+    "5173": { "label": "Vite Frontend", "onAutoForward": "openPreview" },
+    "5432": { "label": "PostgreSQL" },
+    "6379": { "label": "Redis" },
+    "9000": { "label": "MinIO API" },
+    "9001": { "label": "MinIO Console" }
+  },
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
-        "ms-azuretools.vscode-docker",
-        "dbaeumer.vscode-eslint",
-        "bradlc.vscode-tailwindcss"
-      ]
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python3",
+        "python.analysis.typeCheckingMode": "basic",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter"
+        }
+      }
     }
   },
-
-  "remoteUser": "vscode"
+  "remoteUser": "root",
+  "containerEnv": {
+    "DOCKER_BUILDKIT": "1",
+    "COMPOSE_DOCKER_CLI_BUILD": "1",
+    "PYTHONUNBUFFERED": "1",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ]
 }
