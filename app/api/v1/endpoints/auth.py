@@ -3,6 +3,7 @@ Authentication endpoints: Login, Register, Logout, Refresh.
 Handles user authentication with JWT tokens.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from uuid import UUID

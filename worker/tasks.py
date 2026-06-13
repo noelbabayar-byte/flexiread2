@@ -120,32 +120,28 @@ def progress_callback_factory(book_id: str, db_session: Session):
 
 
 @celery_app.task(
-name="process_pdf_task", bind=True, max_retries=3, default_retry_delay=60
+    name="process_pdf_task", bind=True, max_retries=3, default_retry_delay=60
 )
 def process_pdf_task(self, book_id: str, s3_pdf_key: str, user_id: str) -> dict:
-local_pdf_path = None
-parsed_content_url = None
-content_s3_key = None
-with get_task_db() as db:
-    try:
-        logger.info(
-            f"Starting PDF processing: book_id={book_id}, attempt={self.request.retries}"
-        )
+    """
+    Main Celery task for PDF processing and OCR.
+    """
+    local_pdf_path = None
+    parsed_content_url = None
+    content_s3_key = None
+    with get_task_db() as db:
+        try:
+            logger.info(
+                f"Starting PDF processing: book_id={book_id}, attempt={self.request.retries}"
+            )
 
-        book_uuid = UUID(book_id)
-        book = db.query(Book).filter(Book.id == book_uuid).first()
-        if not book:
-            raise ValueError(f"Book not found: {book_id}")
+            book_uuid = UUID(book_id)
+            book = db.query(Book).filter(Book.id == book_uuid).first()
+            if not book:
+                raise ValueError(f"Book not found: {book_id}")
 
-        book.status = BookStatus.PROCESSING
-        db.commit()
-
-        # ... (kalan kod aynı kalır)
-
-        user_uuid = UUID(user_id)
-        user = db.query(User).filter(User.id == user_uuid).first()
-        
-        # ... (kalan kod aynı kalır)
+            book.status = BookStatus.PROCESSING
+            db.commit()
 
             # Step 1: Download PDF from S3 to temporary file
             logger.info(f"Downloading PDF from S3: {s3_pdf_key}")
@@ -155,7 +151,7 @@ with get_task_db() as db:
             if not s3_storage.download_file(s3_pdf_key, local_pdf_path):
                 raise RuntimeError(f"Failed to download PDF from S3: {s3_pdf_key}")
 
-            # Step 2: Process PDF with progress callback (using existing db session)
+            # Step 2: Process PDF with progress callback
             logger.info("Starting PDF processing...")
             progress_callback = progress_callback_factory(book_id, db)
             result, error = process_pdf_file(local_pdf_path, progress_callback)
@@ -167,11 +163,9 @@ with get_task_db() as db:
             summary = result.get("summary", {})
             ocr_pages = summary.get("ocr_pages", 0)
 
-            # Step 3b: Enforce OCR quota. The cost is the number of OCR'd pages,
-            # which is only known after processing. If the user cannot cover it,
-            # fail without delivering content and without consuming quota. This
-            # is a permanent condition, so do NOT retry.
-            user = db.query(User).filter(User.id == user_id).first()
+            # Step 3b: Enforce OCR quota
+            user_uuid = UUID(user_id)
+            user = db.query(User).filter(User.id == user_uuid).first()
             if user and not user.has_quota(ocr_pages):
                 logger.warning(
                     f"Insufficient OCR quota: book={book_id}, needs={ocr_pages}, "
@@ -200,13 +194,13 @@ with get_task_db() as db:
             if not parsed_content_url:
                 raise RuntimeError("Failed to upload processed content to S3")
 
-            # Step 5: Update database with completion (Unit of Work)
+            # Step 5: Update database with completion
             logger.info("Updating database with completion status...")
             book.mark_completed(parsed_content_url)
             book.total_pages = summary.get("total_pages", 0)
             book.processed_pages = book.total_pages
 
-            # Consume quota for the OCR'd pages (quota was verified in Step 3b).
+            # Consume quota
             if user:
                 user.consume_quota(ocr_pages)
 
@@ -216,7 +210,6 @@ with get_task_db() as db:
             if local_pdf_path and os.path.exists(local_pdf_path):
                 os.unlink(local_pdf_path)
 
-            # Clear Redis progress key via RedisManager
             redis_manager.redis.delete(f"book_progress:{book_id}")
 
             logger.info(f"PDF processing completed successfully: {book_id}")
@@ -230,28 +223,22 @@ with get_task_db() as db:
             }
 
         except Exception as e:
-            # S3 compensating action
             if parsed_content_url and content_s3_key:
                 try:
                     s3_storage.delete_file(content_s3_key)
-                    logger.info(f"S3 cleanup successful: {content_s3_key}")
                 except Exception as s3_err:
                     logger.error(f"S3 cleanup failed: {s3_err}")
 
-            # Temp file cleanup
             if local_pdf_path and os.path.exists(local_pdf_path):
                 try:
                     os.unlink(local_pdf_path)
                 except Exception as cleanup_error:
                     logger.warning(f"Failed to cleanup temp file: {cleanup_error}")
 
-            # Smart Retry: Only mark as FAILED if max retries reached
             if self.request.retries >= self.max_retries:
-                logger.critical(
-                    f"Max retries reached for book {book_id}. Marking as FAILED."
-                )
+                logger.critical(f"Max retries reached for book {book_id}. Marking as FAILED.")
                 try:
-                    failed_book = db.query(Book).filter(Book.id == book_id).first()
+                    failed_book = db.query(Book).filter(Book.id == UUID(book_id)).first()
                     if failed_book:
                         failed_book.mark_failed(str(e))
                         db.commit()
@@ -259,7 +246,6 @@ with get_task_db() as db:
                     logger.error(f"Could not mark book as failed: {db_err}")
                 raise e
             else:
-                # Still have retries left! Don't mark as failed, just retry
                 raise self.retry(exc=e)
 
 
@@ -267,15 +253,12 @@ with get_task_db() as db:
 def cleanup_old_books():
     """
     Periodic task to cleanup old failed/pending books and their S3 files.
-    Should be scheduled to run daily.
     """
     from datetime import datetime, timezone, timedelta
 
     with get_task_db() as db:
         try:
-            # Find books older than 7 days in failed/pending state
             cutoff_date = datetime.now(timezone.utc) - timedelta(days=7)
-
             old_books = (
                 db.query(Book)
                 .filter(
@@ -287,27 +270,17 @@ def cleanup_old_books():
 
             for book in old_books:
                 try:
-                    # Delete from S3
                     if book.original_pdf_url:
-                        s3_key = book.original_pdf_url.replace(
-                            f"s3://{settings.AWS_S3_BUCKET}/", ""
-                        )
+                        s3_key = book.original_pdf_url.replace(f"s3://{settings.AWS_S3_BUCKET}/", "")
                         s3_storage.delete_file(s3_key)
                     if book.parsed_content_url:
-                        s3_key = book.parsed_content_url.replace(
-                            f"s3://{settings.AWS_S3_BUCKET}/", ""
-                        )
+                        s3_key = book.parsed_content_url.replace(f"s3://{settings.AWS_S3_BUCKET}/", "")
                         s3_storage.delete_file(s3_key)
-
-                    # Delete from database
                     db.delete(book)
-                    logger.info(f"Cleaned up old book: {book.id}")
                 except Exception as e:
                     logger.error(f"Cleanup failed for book {book.id}: {e}")
 
             db.commit()
-            logger.info(f"Cleanup task completed: {len(old_books)} books removed")
-
         except Exception as e:
             logger.error(f"Cleanup task failed: {e}")
             db.rollback()
@@ -317,29 +290,19 @@ def cleanup_old_books():
 def reset_monthly_quotas():
     """
     Periodic task to reset monthly quotas for all users.
-    Should be scheduled to run on the 1st of each month.
     """
     with get_task_db() as db:
         try:
             users = db.query(User).all()
             now = datetime.now(timezone.utc)
-
             for user in users:
-                # Reset based on subscription tier
                 if user.plan_type == SubscriptionTier.PRO:
                     user.ocr_quota_remaining = settings.PRO_TIER_MONTHLY_QUOTA
                 else:
                     user.ocr_quota_remaining = settings.FREE_TIER_MONTHLY_QUOTA
-
-                user.ocr_quota_reset_date = datetime(
-                    now.year, now.month, 1, tzinfo=timezone.utc
-                )
-
+                user.ocr_quota_reset_date = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
             db.commit()
-            logger.info(f"Reset quotas for {len(users)} users")
-
             return {"status": "success", "users_reset": len(users)}
-
         except Exception as e:
             logger.error(f"Quota reset failed: {e}")
             db.rollback()
