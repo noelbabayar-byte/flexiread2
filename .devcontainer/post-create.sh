@@ -1,50 +1,60 @@
 #!/bin/bash
 set -e
 
-echo "🚀 FlexiRead post-create setup starting..."
+echo "🚀 FlexiRead setup starting..."
 
-# 1. Docker daemon'u başlat (arka planda)
-echo "📦 Starting Docker daemon..."
-sudo dockerd > /var/log/dockerd.log 2>&1 &
-sleep 5
+# 1. Docker CLI kur (apt ile, feature yerine)
+echo "📦 Installing Docker..."
+apt-get update -qq
+apt-get install -y -qq docker.io docker-compose-v2 curl wget git
 
-# 2. Docker'ın hazır olduğunu doğrula
-echo "🔍 Checking Docker..."
-until docker ps > /dev/null 2>&1; do
-    echo "   Waiting for Docker daemon..."
+# 2. Docker daemon'u başlat
+echo "🔧 Starting Docker daemon..."
+nohup dockerd > /var/log/dockerd.log 2>&1 &
+sleep 3
+
+# 3. Docker'ın hazır olduğunu doğrula (max 60 saniye bekle)
+echo "⏳ Waiting for Docker..."
+for i in {1..30}; do
+    if docker ps > /dev/null 2>&1; then
+        echo "✅ Docker ready! ($(docker --version))"
+        break
+    fi
+    echo "   Still waiting... ($i/30)"
     sleep 2
 done
-echo "✅ Docker is ready!"
 
-# 3. pnpm kur (repo'nun paket yöneticisi)
+# 4. Docker hâlâ çalışmıyorsa hata ver
+if ! docker ps > /dev/null 2>&1; then
+    echo "❌ Docker failed to start"
+    cat /var/log/dockerd.log | tail -30
+    exit 1
+fi
+
+# 5. pnpm kur
 echo "📦 Installing pnpm..."
 npm install -g pnpm
 
-# 4. Backend Python bağımlılıkları
-echo "🐍 Installing Python dependencies..."
-cd /workspaces/flexiread2 || cd /workspace/flexiread2 || cd .
-pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt 2>/dev/null || echo "⚠️ requirements.txt not found"
+# 6. Backend bağımlılıkları
+echo "🐍 Installing Python deps..."
+pip install -q --upgrade pip setuptools wheel
+pip install -q -r requirements.txt || echo "⚠️ requirements.txt install had issues"
 
-# 5. Frontend bağımlılıkları (pnpm kullan!)
-echo "⚛️ Installing frontend dependencies..."
-if [ -d "frontend" ]; then
-    cd frontend
-    pnpm install
-    cd ..
-else
-    echo "⚠️ frontend directory not found"
-fi
+# 7. Frontend bağımlılıkları
+echo "⚛️ Installing frontend deps..."
+cd frontend
+pnpm install
+cd ..
 
-# 6. .env dosyasını oluştur (yoksa)
+# 8. .env oluştur
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
-    echo "📝 Creating .env from .env.example..."
     cp .env.example .env
 fi
 
-echo "✅ Post-create setup complete!"
 echo ""
-echo "📋 Next steps:"
+echo "✅ Setup complete!"
+echo ""
+echo "📋 Run these commands:"
 echo "   docker compose up -d"
 echo "   docker compose exec api alembic upgrade head"
 echo "   cd frontend && pnpm dev"
