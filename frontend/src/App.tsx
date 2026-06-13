@@ -1,92 +1,119 @@
-import React, { useState, useCallback } from 'react';
-import { ReaderView } from './components/ReaderView';
-import { BookContent } from './reader/types';
-
-// Mock book content for demonstration
-const mockBookContent: BookContent = {
-  book_id: 'mock-book-1',
-  total_pages: 5,
-  pages: [
-    {
-      page_number: 1,
-      blocks: [
-        { id: 'p1-b1', type: 'text', content: 'This is the first paragraph of page 1. It contains some introductory text to demonstrate the FlexiRead application. We will test various features like scrolling, theme changes, and font adjustments.' },
-        { id: 'p1-b2', type: 'image', content: 'https://via.placeholder.com/400x200?text=Image+1' },
-        { id: 'p1-b3', type: 'text', content: 'Another paragraph on page 1. This one is a bit longer to show how text wraps and fills the available space. The reader should handle different text lengths gracefully.' },
-      ],
-      is_ocr: false,
-    },
-    {
-      page_number: 2,
-      blocks: [
-        { id: 'p2-b1', type: 'text', content: 'Page 2 starts here. This content is meant to simulate the continuation of a book. We can add more complex elements as needed.' },
-        { id: 'p2-b2', type: 'formula', content: 'E=mc^2' },
-        { id: 'p2-b3', type: 'text', content: 'A formula block is rendered above. This demonstrates the integration of mathematical expressions within the reader. The engine should correctly display these using MathJax or KaTeX.' },
-      ],
-      is_ocr: false,
-    },
-    {
-      page_number: 3,
-      blocks: [
-        { id: 'p3-b1', type: 'text', content: 'This is page 3. The virtual scrolling mechanism should ensure that only a few pages around the current view are rendered in the DOM to optimize performance and memory usage.' },
-        { id: 'p3-b2', type: 'question', content: 'What is the primary benefit of using a virtualized scrolling approach in a document reader?' },
-        { id: 'p3-b3', type: 'text', content: 'The question block is an example of a custom content type. It allows for interactive elements or specific formatting for certain types of content within the document.' },
-      ],
-      is_ocr: false,
-    },
-    {
-      page_number: 4,
-      blocks: [
-        { id: 'p4-b1', type: 'text', content: 'Page 4 content. We are getting closer to the end of our mock book. This page will contain more text to fill up space.' },
-        { id: 'p4-b2', type: 'image', content: 'https://via.placeholder.com/600x300?text=Image+2' },
-        { id: 'p4-b3', type: 'text', content: 'Another image is displayed here. The image scaling preference should affect how this image is rendered within the reader view. Users can adjust it from the settings panel.' },
-      ],
-      is_ocr: false,
-    },
-    {
-      page_number: 5,
-      blocks: [
-        { id: 'p5-b1', type: 'text', content: 'Finally, page 5. This is the last page of our demonstration book. We hope all features are working as expected.' },
-        { id: 'p5-b2', type: 'formula', content: '\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}' },
-        { id: 'p5-b3', type: 'text', content: 'End of the book. Thank you for testing FlexiRead!' },
-      ],
-      is_ocr: false,
-    },
-  ],
-  sections: [
-    { id: 'sec-1', title: 'Introduction', startPageNumber: 1, startBlockIndex: 0, level: 1 },
-    { id: 'sec-2', title: 'Core Concepts', startPageNumber: 2, startBlockIndex: 0, level: 1 },
-    { id: 'sec-3', title: 'Advanced Features', startPageNumber: 3, startBlockIndex: 0, level: 1 },
-    { id: 'sec-4', title: 'Conclusion', startPageNumber: 5, startBlockIndex: 0, level: 1 },
-  ],
-  metadata: {
-    title: 'FlexiRead Demo Book',
-    author: 'Manus AI',
-    total_words: 2500,
-    language: 'en',
-  },
-};
+cat > /workspaces/flexiread2/frontend/src/App.tsx << 'EOF'
+import { useState, useCallback } from 'react'
+import ReaderView from './components/ReaderView'
+import './App.css'
 
 function App() {
-  const [progress, setProgress] = useState({ pageNumber: 1, blockIndex: 0 });
+  const [progress, setProgress] = useState({ pageNumber: 1, blockIndex: 0 })
+  const [bookId, setBookId] = useState<string | null>(null)
+  const [bookContent, setBookContent] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Stabilize callback so ReaderView's useEffect doesn't re-run on every render.
   const handleProgressChange = useCallback((pageNumber: number, blockIndex: number) => {
-    setProgress({ pageNumber, blockIndex });
-  }, []);
+    setProgress({ pageNumber, blockIndex })
+  }, [])
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      // 1. Login to get token
+      const loginRes = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'demo@flexiread.com', password: 'demo12345' })
+      })
+      const loginData = await loginRes.json()
+      const token = loginData.access_token
+
+      // 2. Get upload URL
+      const uploadUrlRes = await fetch('http://localhost:8000/api/v1/books/upload-url', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ filename: file.name, content_type: file.type })
+      })
+      const uploadData = await uploadUrlRes.json()
+
+      // 3. Upload PDF
+      await fetch(uploadData.upload_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file
+      })
+
+      // 4. Set book ID and content
+      setBookId(uploadData.book_id)
+      
+      // Poll for status
+      const checkStatus = async () => {
+        const statusRes = await fetch(`http://localhost:8000/api/v1/books/${uploadData.book_id}/status`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const statusData = await statusRes.json()
+        
+        if (statusData.status === 'completed') {
+          const contentRes = await fetch(`http://localhost:8000/api/v1/books/${uploadData.book_id}/content`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+          const contentData = await contentRes.json()
+          setBookContent(contentData)
+          setLoading(false)
+        } else if (statusData.status === 'failed') {
+          setError('OCR failed')
+          setLoading(false)
+        } else {
+          setTimeout(checkStatus, 2000) // Check again in 2 seconds
+        }
+      }
+      
+      checkStatus()
+      
+    } catch (err) {
+      setError('Upload failed: ' + (err as Error).message)
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="App">
-      <ReaderView
-        bookId={mockBookContent.book_id}
-        bookContent={mockBookContent}
-        onProgressChange={handleProgressChange}
-      />
-      <div style={{ position: 'fixed', bottom: 0, left: 0, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '5px 10px', fontSize: '0.8em' }}>
-        Progress: Page {progress.pageNumber}, Block {progress.blockIndex}
-      </div>
+      {!bookId && (
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <h1>FlexiRead</h1>
+          <p>Upload a PDF to start reading</p>
+          <input 
+            type="file" 
+            accept=".pdf" 
+            onChange={handleFileUpload}
+            disabled={loading}
+          />
+          {loading && <p>Uploading and processing...</p>}
+          {error && <p style={{ color: 'red' }}>{error}</p>}
+        </div>
+      )}
+      
+      {bookId && bookContent && (
+        <>
+          <ReaderView
+            bookId={bookId}
+            bookContent={bookContent}
+            onProgressChange={handleProgressChange}
+          />
+          <div style={{ position: 'fixed', bottom: 0, left: 0, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '5px 10px', fontSize: '0.8em' }}>
+            Progress: Page {progress.pageNumber}, Block {progress.blockIndex}
+          </div>
+        </>
+      )}
     </div>
-  );
+  )
 }
 
-export default App;
+export default App
+EOF
