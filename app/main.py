@@ -35,13 +35,6 @@ if settings.is_production():
         )
         raise RuntimeError("Wildcard CORS origins are not allowed in production")
 
-# =========================================================================
-# FIX #1: CORS Headers - "Origin" header'i eklendi
-# =========================================================================
-# ESKI: allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"]
-# YENI: "Origin" header'i eklendi - bazı browser'lar ve proxy'ler bu header'i
-#       preflight isteklerinde gönderir. Eksikse CORS hatası oluşabilir.
-# =========================================================================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
