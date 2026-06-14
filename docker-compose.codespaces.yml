@@ -87,7 +87,7 @@ services:
   api:
     build:
       context: .
-n      dockerfile: Dockerfile
+      dockerfile: Dockerfile
       target: development
     container_name: flexiread-api
     environment:
@@ -113,7 +113,7 @@ n      dockerfile: Dockerfile
       OCR_LANGUAGE: tur,eng
       # YENI: Codespaces ortamini algilama icin gerekli
       CODESPACES: "true"
-      CODESPACE_NAME: ${CODESPACE_NAME}
+      CODESPACE_NAME: "${CODESPACE_NAME}"
     ports:
       - "8000:8000"
     volumes:
@@ -184,7 +184,8 @@ n      dockerfile: Dockerfile
     environment:
       # YENI: API'nin Codespaces public URL'si
       # ${CODESPACE_NAME} GitHub Codespaces tarafindan otomatik verilir
-      VITE_API_URL: https://${CODESPACE_NAME}-8000.github.dev
+      # TIRNAK ICINDE: URL'deki tire isareti YAML parser'ini kandiriyordu
+      VITE_API_URL: "https://${CODESPACE_NAME}-8000.github.dev"
     ports:
       - "5173:5173"
     volumes:
