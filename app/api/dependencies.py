@@ -58,11 +58,20 @@ async def get_current_user(
         )
 
     user = db.query(User).filter(User.id == user_id).first()
+    # =========================================================================
+    # FIX #1: User bulunamazsa 401 dondur (guvenlik icin)
+    # =========================================================================
+    # ESKI: User bulunamazsa 404 Not Found donuyordu
+    #       Bu, var olmayan bir user ID'si ile bilgi sizdirabilir
+    # YENI: User bulunamazsa 401 Unauthorized donuyor
+    #       Bu daha guvenli cunku yetkisiz erisimi gizler
+    # =========================================================================
     if not user:
         logger.warning(f"User not found: {user_id}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     if not user.is_active:
