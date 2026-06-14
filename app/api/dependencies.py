@@ -59,12 +59,12 @@ async def get_current_user(
 
     user = db.query(User).filter(User.id == user_id).first()
     # =========================================================================
-    # FIX #1: User bulunamazsa 401 dondur (guvenlik icin)
+    # FIX #1: User bulunamazsa 401 döndür (güvenlik için)
     # =========================================================================
-    # ESKI: User bulunamazsa 404 Not Found donuyordu
-    #       Bu, var olmayan bir user ID'si ile bilgi sizdirabilir
-    # YENI: User bulunamazsa 401 Unauthorized donuyor
-    #       Bu daha guvenli cunku yetkisiz erisimi gizler
+    # ESKI: User bulunamazsa 404 Not Found dönüyordu
+    #       Bu, var olmayan bir user ID'si ile bilgi sızdırabilir
+    # YENI: User bulunamazsa 401 Unauthorized dönüyor
+    #       Bu daha güvenli çünkü yetkisiz erişimi gizler
     # =========================================================================
     if not user:
         logger.warning(f"User not found: {user_id}")
