@@ -10,8 +10,14 @@
 
 import { BookContent, ContentBlock, PageData } from '@/reader/types';
 
+// =============================================================================
+// FIX #1: API_BASE - Vite import.meta.env kullanimi duzeltildi
+// =============================================================================
+// ESKI (calismiyordu): (import.meta as any).env?.VITE_API_URL
+// YENI (calisiyor):   import.meta.env.VITE_API_URL
+// =============================================================================
 const API_BASE: string =
-  (import.meta as any).env?.VITE_API_URL?.replace(/\/$/, '') ||
+  (import.meta.env.VITE_API_URL as string)?.replace(/\/$/, '') ||
   'http://localhost:8000';
 
 const ACCESS_KEY = 'flexiread_access_token';
@@ -166,12 +172,22 @@ const jsonBody = (data: unknown): RequestInit => ({
 // Auth
 // ---------------------------------------------------------------------------
 
+// FIX #2: Register fonksiyonu backend'den donen kullanici verisini de aliyor
+export interface UserOut {
+  id: string;
+  email: string;
+  full_name: string | null;
+  plan_type: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export async function register(
   email: string,
   password: string,
   fullName?: string,
-): Promise<void> {
-  await apiFetch(
+): Promise<UserOut> {
+  return apiFetch<UserOut>(
     '/api/v1/auth/register',
     jsonBody({ email, password, full_name: fullName }),
     false,
