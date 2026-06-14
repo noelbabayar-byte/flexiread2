@@ -76,10 +76,18 @@ services:
       - flexiread-network
     restart: "no"
 
+  # =========================================================================
+  # FIX #1: API servisine CODESPACES environment variable'lari eklendi
+  # =========================================================================
+  # ESKI: Backend Codespaces ortaminda oldugunu anlayamiyordu
+  # YENI: CODESPACES=true ve CODESPACE_NAME verildi
+  # Bu sayede PUBLIC_API_URL, PUBLIC_FRONTEND_URL, ALLOWED_ORIGINS
+  # otomatik olarak Codespaces URL'lerine ayarlaniyor
+  # =========================================================================
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+n      dockerfile: Dockerfile
       target: development
     container_name: flexiread-api
     environment:
@@ -103,6 +111,9 @@ services:
       ALLOWED_ORIGINS: "*"
       TESSERACT_CMD: /usr/bin/tesseract
       OCR_LANGUAGE: tur,eng
+      # YENI: Codespaces ortamini algilama icin gerekli
+      CODESPACES: "true"
+      CODESPACE_NAME: ${CODESPACE_NAME}
     ports:
       - "8000:8000"
     volumes:
@@ -156,12 +167,24 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  # =========================================================================
+  # FIX #2: Frontend servisine VITE_API_URL environment variable'i eklendi
+  # =========================================================================
+  # ESKI: Frontend API'nin nerede oldugunu bilmiyordu, localhost:8000'e
+  #       fallback ediyordu ama Codespaces'te API farkli URL'de calisiyor
+  # YENI: VITE_API_URL ile API'nin Codespaces public URL'si verildi
+  #       Bu sayede frontend dogru API adresine istek atiyor
+  # =========================================================================
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       target: development
     container_name: flexiread-frontend
+    environment:
+      # YENI: API'nin Codespaces public URL'si
+      # ${CODESPACE_NAME} GitHub Codespaces tarafindan otomatik verilir
+      VITE_API_URL: https://${CODESPACE_NAME}-8000.github.dev
     ports:
       - "5173:5173"
     volumes:
