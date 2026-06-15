@@ -180,7 +180,7 @@ services:
       target: development
     container_name: flexiread-frontend
     environment:
-      VITE_API_URL: "https://${CODESPACE_NAME}-8000.github.dev"
+      VITE_API_URL: "https://${CODESPACE_NAME}-8000.app.github.dev"
     ports:
       - "5173:5173"
     volumes:
