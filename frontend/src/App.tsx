@@ -16,30 +16,52 @@ import {
 
 type View = 'auth' | 'library' | 'reading';
 
-const panel: React.CSSProperties = {
-  maxWidth: 520,
-  margin: '60px auto',
-  padding: 24,
-  fontFamily: 'system-ui, sans-serif',
+// ---------------------------------------------------------------------------
+// Shared style tokens
+// ---------------------------------------------------------------------------
+
+const colors = {
+  primary: '#2563eb',
+  primaryDark: '#1d4ed8',
+  text: '#0f172a',
+  muted: '#64748b',
+  border: '#e2e8f0',
+  danger: '#dc2626',
+  dangerBg: '#fef2f2',
+  surface: '#ffffff',
 };
 
 const input: React.CSSProperties = {
   width: '100%',
-  padding: '10px 12px',
+  padding: '12px 14px',
   margin: '6px 0',
-  border: '1px solid #ccc',
-  borderRadius: 6,
+  border: `1px solid ${colors.border}`,
+  borderRadius: 10,
+  fontSize: '0.95rem',
+  color: colors.text,
+  background: '#f8fafc',
   boxSizing: 'border-box',
 };
 
 const button: React.CSSProperties = {
-  padding: '10px 16px',
+  padding: '12px 18px',
   border: 'none',
-  borderRadius: 6,
-  background: '#2563eb',
+  borderRadius: 10,
+  background: colors.primary,
   color: 'white',
   cursor: 'pointer',
-  fontSize: '0.95em',
+  fontSize: '0.95rem',
+  fontWeight: 600,
+};
+
+const errorBox: React.CSSProperties = {
+  background: colors.dangerBg,
+  color: colors.danger,
+  border: `1px solid #fecaca`,
+  borderRadius: 10,
+  padding: '10px 12px',
+  fontSize: '0.9rem',
+  margin: '10px 0 0',
 };
 
 // ---------------------------------------------------------------------------
@@ -72,56 +94,148 @@ function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
   };
 
   return (
-    <div style={panel}>
-      <h1 style={{ fontSize: '1.6em' }}>FlexiRead</h1>
-      <p style={{ color: '#666' }}>
-        {mode === 'login' ? 'Giriş yap' : 'Yeni hesap oluştur'}
-      </p>
-      <form onSubmit={submit}>
-        {mode === 'register' && (
-          <input
-            style={input}
-            placeholder="Ad soyad (opsiyonel)"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-          />
-        )}
-        <input
-          style={input}
-          type="email"
-          placeholder="E-posta"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          style={input}
-          type="password"
-          placeholder="Parola (en az 8 karakter)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={8}
-        />
-        {error && <p style={{ color: '#dc2626' }}>{error}</p>}
-        <button style={{ ...button, width: '100%' }} disabled={busy}>
-          {busy ? 'Lütfen bekleyin...' : mode === 'login' ? 'Giriş' : 'Kayıt ol'}
-        </button>
-      </form>
-      <p style={{ marginTop: 16, fontSize: '0.9em' }}>
-        {mode === 'login' ? 'Hesabın yok mu? ' : 'Zaten hesabın var mı? '}
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setError(null);
-            setMode(mode === 'login' ? 'register' : 'login');
+    <div
+      className="fr-screen"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        background: 'linear-gradient(135deg, #eef2ff 0%, #e0f2fe 100%)',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 420,
+          background: colors.surface,
+          borderRadius: 18,
+          padding: '32px 28px',
+          boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12)',
+        }}
+      >
+        <div style={{ textAlign: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: '2rem' }} aria-hidden="true">
+            📖
+          </span>
+        </div>
+        <h1
+          style={{
+            fontSize: '1.7rem',
+            textAlign: 'center',
+            margin: '0 0 4px',
+            color: colors.text,
           }}
         >
-          {mode === 'login' ? 'Kayıt ol' : 'Giriş yap'}
-        </a>
-      </p>
+          FlexiRead
+        </h1>
+        <p style={{ color: colors.muted, textAlign: 'center', margin: '0 0 22px' }}>
+          {mode === 'login'
+            ? 'Hesabına giriş yap ve okumaya devam et'
+            : 'Ücretsiz hesabını oluştur'}
+        </p>
+
+        <form onSubmit={submit}>
+          {mode === 'register' && (
+            <input
+              className="fr-input"
+              style={input}
+              placeholder="Ad soyad (opsiyonel)"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+            />
+          )}
+          <input
+            className="fr-input"
+            style={input}
+            type="email"
+            placeholder="E-posta"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            className="fr-input"
+            style={input}
+            type="password"
+            placeholder="Parola (en az 8 karakter)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+          />
+          {error && <p style={errorBox}>{error}</p>}
+          <button
+            className="fr-btn"
+            style={{ ...button, width: '100%', marginTop: 14 }}
+            disabled={busy}
+          >
+            {busy && <span className="fr-spinner" aria-hidden="true" />}
+            {busy
+              ? 'Lütfen bekleyin...'
+              : mode === 'login'
+              ? 'Giriş'
+              : 'Kayıt ol'}
+          </button>
+        </form>
+
+        <p
+          style={{
+            marginTop: 20,
+            marginBottom: 0,
+            fontSize: '0.9rem',
+            textAlign: 'center',
+            color: colors.muted,
+          }}
+        >
+          {mode === 'login' ? 'Hesabın yok mu? ' : 'Zaten hesabın var mı? '}
+          <a
+            href="#"
+            className="fr-link"
+            onClick={(e) => {
+              e.preventDefault();
+              setError(null);
+              setMode(mode === 'login' ? 'register' : 'login');
+            }}
+          >
+            {mode === 'login' ? 'Kayıt ol' : 'Giriş yap'}
+          </a>
+        </p>
+      </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Status badge
+// ---------------------------------------------------------------------------
+
+function StatusBadge({ book }: { book: BookStatus }) {
+  const map: Record<string, { label: string; bg: string; fg: string }> = {
+    completed: { label: 'Hazır', bg: '#dcfce7', fg: '#166534' },
+    processing: {
+      label: `İşleniyor %${book.progress_percentage}`,
+      bg: '#dbeafe',
+      fg: '#1e40af',
+    },
+    pending: { label: 'Sırada', bg: '#f1f5f9', fg: '#475569' },
+    failed: { label: 'Başarısız', bg: '#fee2e2', fg: '#991b1b' },
+  };
+  const s = map[book.status] || map.pending;
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        background: s.bg,
+        color: s.fg,
+        borderRadius: 999,
+        padding: '3px 10px',
+        fontSize: '0.75rem',
+        fontWeight: 600,
+      }}
+    >
+      {s.label}
+    </span>
   );
 }
 
@@ -176,76 +290,159 @@ function LibraryScreen({
     }
   };
 
+  const busy = !!uploadState;
+
   return (
-    <div style={{ ...panel, maxWidth: 720 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '1.6em' }}>Kitaplığım</h1>
-        <button style={{ ...button, background: '#6b7280' }} onClick={onLogout}>
-          Çıkış
-        </button>
-      </div>
+    <div className="fr-screen" style={{ background: '#f8fafc' }}>
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 20px 64px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 20,
+          }}
+        >
+          <h1 style={{ fontSize: '1.7rem', margin: 0, color: colors.text }}>
+            Kitaplığım
+          </h1>
+          <button
+            className="fr-btn"
+            style={{ ...button, background: '#64748b', padding: '9px 14px' }}
+            onClick={onLogout}
+          >
+            Çıkış
+          </button>
+        </div>
 
-      <label
-        style={{
-          ...button,
-          display: 'inline-block',
-          margin: '16px 0',
-          background: uploadState ? '#9ca3af' : '#2563eb',
-        }}
-      >
-        {uploadState || 'PDF yükle'}
-        <input
-          type="file"
-          accept="application/pdf"
-          onChange={onFile}
-          disabled={!!uploadState}
-          style={{ display: 'none' }}
-        />
-      </label>
+        {/* Upload area */}
+        <label
+          className="fr-btn"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            padding: '28px 16px',
+            marginBottom: 24,
+            borderRadius: 14,
+            border: `2px dashed ${busy ? '#cbd5e1' : '#bfdbfe'}`,
+            background: busy ? '#f1f5f9' : '#eff6ff',
+            color: busy ? colors.muted : colors.primaryDark,
+            cursor: busy ? 'not-allowed' : 'pointer',
+            fontWeight: 600,
+            textAlign: 'center',
+          }}
+        >
+          {busy ? (
+            <>
+              <span className="fr-spinner" style={{ borderTopColor: colors.primary }} aria-hidden="true" />
+              <span>{uploadState}</span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: '1.6rem' }} aria-hidden="true">
+                ⬆️
+              </span>
+              <span>PDF yükle</span>
+              <span style={{ fontWeight: 400, fontSize: '0.82rem', color: colors.muted }}>
+                Bir PDF seç, gerisini biz hallederiz
+              </span>
+            </>
+          )}
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={onFile}
+            disabled={busy}
+            style={{ display: 'none' }}
+          />
+        </label>
 
-      {error && <p style={{ color: '#dc2626' }}>{error}</p>}
+        {error && <p style={errorBox}>{error}</p>}
 
-      {books.length === 0 ? (
-        <p style={{ color: '#666' }}>Henüz kitap yok. Bir PDF yükleyerek başla.</p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {books.map((b) => (
-            <li
-              key={b.id}
-              style={{
-                padding: 12,
-                border: '1px solid #e5e7eb',
-                borderRadius: 6,
-                marginBottom: 8,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div>
-                <strong>{b.title}</strong>
-                <div style={{ fontSize: '0.85em', color: '#666' }}>
-                  {b.status === 'completed'
-                    ? `${b.total_pages} sayfa`
-                    : b.status === 'failed'
-                    ? `Başarısız: ${b.error_message || ''}`
-                    : `${b.status} (%${b.progress_percentage})`}
-                </div>
-              </div>
-              <button
+        {books.length === 0 ? (
+          <div
+            style={{
+              textAlign: 'center',
+              color: colors.muted,
+              padding: '48px 20px',
+              border: `1px solid ${colors.border}`,
+              borderRadius: 14,
+              background: colors.surface,
+            }}
+          >
+            <div style={{ fontSize: '2rem', marginBottom: 8 }} aria-hidden="true">
+              📚
+            </div>
+            Henüz kitap yok. Bir PDF yükleyerek başla.
+          </div>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {books.map((b) => (
+              <li
+                key={b.id}
+                className="fr-card"
                 style={{
-                  ...button,
-                  background: b.status === 'completed' ? '#2563eb' : '#d1d5db',
+                  padding: 16,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 14,
+                  marginBottom: 12,
+                  background: colors.surface,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 12,
                 }}
-                disabled={b.status !== 'completed'}
-                onClick={() => onOpen(b.id)}
               >
-                Oku
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+                <div style={{ minWidth: 0 }}>
+                  <strong
+                    style={{
+                      display: 'block',
+                      color: colors.text,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {b.title}
+                  </strong>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginTop: 6,
+                      fontSize: '0.85rem',
+                      color: colors.muted,
+                    }}
+                  >
+                    <StatusBadge book={b} />
+                    {b.status === 'completed' && <span>{b.total_pages} sayfa</span>}
+                    {b.status === 'failed' && b.error_message && (
+                      <span style={{ color: colors.danger }}>{b.error_message}</span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  className="fr-btn"
+                  style={{
+                    ...button,
+                    flexShrink: 0,
+                    background:
+                      b.status === 'completed' ? colors.primary : '#cbd5e1',
+                  }}
+                  disabled={b.status !== 'completed'}
+                  onClick={() => onOpen(b.id)}
+                >
+                  Oku
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
@@ -277,10 +474,20 @@ function ReadingScreen({ bookId, onBack }: { bookId: string; onBack: () => void 
 
   if (error) {
     return (
-      <div style={panel}>
-        <p style={{ color: '#dc2626' }}>{error}</p>
-        <button style={button} onClick={onBack}>
-          Geri dön
+      <div
+        className="fr-screen"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 16,
+          padding: 24,
+        }}
+      >
+        <p style={errorBox}>{error}</p>
+        <button className="fr-btn" style={button} onClick={onBack}>
+          ← Kitaplığa dön
         </button>
       </div>
     );
@@ -288,8 +495,19 @@ function ReadingScreen({ bookId, onBack }: { bookId: string; onBack: () => void 
 
   if (!content) {
     return (
-      <div style={panel}>
-        <p>İçerik yükleniyor...</p>
+      <div
+        className="fr-screen"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: colors.muted,
+        }}
+      >
+        <p>
+          <span className="fr-spinner" style={{ borderTopColor: colors.primary }} aria-hidden="true" />
+          İçerik yükleniyor...
+        </p>
       </div>
     );
   }
@@ -297,7 +515,16 @@ function ReadingScreen({ bookId, onBack }: { bookId: string; onBack: () => void 
   return (
     <div className="App">
       <button
-        style={{ ...button, position: 'fixed', top: 10, left: 10, zIndex: 1000, background: '#6b7280' }}
+        className="fr-btn"
+        style={{
+          ...button,
+          position: 'fixed',
+          top: 12,
+          left: 12,
+          zIndex: 1000,
+          background: 'rgba(15, 23, 42, 0.82)',
+          padding: '8px 14px',
+        }}
         onClick={onBack}
       >
         ← Kitaplık

@@ -54,6 +54,12 @@ flexiread-worker        Up
 flexiread-frontend      Up                  5173/tcp
 ```
 
+**Run the database migrations** (only needed the first time):
+
+```bash
+docker compose -f docker-compose.codespaces.yml exec api alembic upgrade head
+```
+
 ---
 
 ## Step 3: Access Services
@@ -62,9 +68,12 @@ GitHub Codespaces automatically forwards ports to public URLs. Check the "Ports"
 
 | Service | Local Port | Public URL |
 |---------|-----------|-----------|
-| **Frontend** | 5173 | `https://[codespace-name]-5173.github.dev` |
-| **API** | 8000 | `https://[codespace-name]-8000.github.dev` |
-| **MinIO** | 9001 | `https://[codespace-name]-9001.github.dev` |
+| **Frontend** | 5173 | `https://[codespace-name]-5173.app.github.dev` |
+| **API** | 8000 | `https://[codespace-name]-8000.app.github.dev` |
+| **MinIO** | 9001 | `https://[codespace-name]-9001.app.github.dev` |
+
+> Not: Codespaces yönlendirilmiş port adresleri `*.app.github.dev` biçimindedir
+> (`*.github.dev` değil). Backend bu URL'leri otomatik üretir.
 
 ---
 

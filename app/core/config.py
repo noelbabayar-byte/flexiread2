@@ -273,7 +273,7 @@ class Settings(BaseSettings):
         # If in Codespaces, use the public URL
         if data.get("CODESPACES"):
             codespace_name = data.get("CODESPACE_NAME", "flexiread")
-            return f"https://{codespace_name}-9000.github.dev"
+            return f"https://{codespace_name}-9000.app.github.dev"
 
         # Otherwise, use localhost
         return "http://localhost:9000"
@@ -289,7 +289,7 @@ class Settings(BaseSettings):
         # If in Codespaces, use the public URL
         if data.get("CODESPACES"):
             codespace_name = data.get("CODESPACE_NAME", "flexiread")
-            return f"https://{codespace_name}-8000.github.dev"
+            return f"https://{codespace_name}-8000.app.github.dev"
 
         # Otherwise, use localhost
         return "http://localhost:8000"
@@ -305,7 +305,7 @@ class Settings(BaseSettings):
         # If in Codespaces, use the public URL
         if data.get("CODESPACES"):
             codespace_name = data.get("CODESPACE_NAME", "flexiread")
-            return f"https://{codespace_name}-5173.github.dev"
+            return f"https://{codespace_name}-5173.app.github.dev"
 
         # Otherwise, use localhost
         return "http://localhost:5173"
