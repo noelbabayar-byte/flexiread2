@@ -2,6 +2,15 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+// Codespaces (and other HTTPS reverse-proxy setups) serve the dev server over
+// port 443, so the HMR websocket client must be told to connect there. Locally
+// (plain http://localhost:5173, including local Docker) there is no server on
+// 443, and forcing clientPort:443 floods the console with endless
+// ERR_CONNECTION_REFUSED to ws://localhost:443. Only override HMR when we are
+// actually behind such a proxy.
+const isCodespaces =
+  process.env.CODESPACES === 'true' || !!process.env.CODESPACE_NAME
+
 // https://vitejs.dev/config/
 export default defineConfig({
   // Relative base so assets load correctly behind Codespaces proxies.
@@ -33,8 +42,9 @@ export default defineConfig({
         // rewrite kaldirdik çünkü backend /api/v1 prefixini bekliyor
       },
     },
-    hmr: {
-      clientPort: 443,
-    },
+    // Only pin the HMR client to 443 when served through an HTTPS proxy
+    // (Codespaces). Locally, leave it as Vite's default so the websocket
+    // connects to the actual dev port instead of a dead :443.
+    hmr: isCodespaces ? { clientPort: 443 } : true,
   },
 })
