@@ -24,6 +24,7 @@ export class ReaderStateManager {
   private stateListeners: Set<StateChangeListener> = new Set();
   private preferenceListeners: Set<PreferenceChangeListener> = new Set();
   private progressListeners: Set<ProgressChangeListener> = new Set();
+  private isEmitting = false;
 
   constructor(bookId: string) {
     // Load saved preferences or use defaults

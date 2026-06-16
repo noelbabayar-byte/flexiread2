@@ -76,18 +76,29 @@ export interface BookStatus {
   created_at: string;
 }
 
+interface BackendContentBlock {
+  id?: string;
+  type?: ContentBlock['type'];
+  content?: string;
+  metadata?: ContentBlock['metadata'];
+}
+
 interface BackendPage {
   page_number: number;
-  text: string;
-  method: 'direct' | 'ocr' | 'none';
-  confidence: number;
+  text?: string | null;
+  paragraphs?: string[] | null;
+  blocks?: BackendContentBlock[] | null;
+  method?: 'direct' | 'ocr' | 'none' | null;
+  is_ocr?: boolean | null;
+  confidence?: number | null;
 }
 
 interface BackendContentResponse {
-  id: string;
+  id?: string;
+  book_id?: string;
   title: string;
   status: string;
-  total_pages: number;
+  total_pages?: number | null;
   metadata?: { title?: string; author?: string; language?: string } | null;
   summary?: Record<string, unknown> | null;
   pages?: BackendPage[] | null;
@@ -294,14 +305,48 @@ export async function pollUntilDone(
 // ---------------------------------------------------------------------------
 
 /**
- * Split a page's plain text into paragraph blocks. The backend stores one text
- * blob per page; the reader engine wants discrete blocks.
+ * Normalize the known backend page shapes into reader blocks.
+ *
+ * The app has produced a few content formats over time:
+ * - current OCR output: { text, method, confidence }
+ * - older/doc format: { paragraphs, is_ocr, confidence }
+ * - reader-native format: { blocks, is_ocr, confidence }
  */
-function textToBlocks(page: BackendPage): ContentBlock[] {
-  const source = page.method === 'ocr' ? 'ocr' : 'native';
-  const paragraphs = page.text
-    .split(/\n\s*\n/)
-    .map((p) => p.replace(/\s+/g, ' ').trim())
+function normalizeBlocks(page: BackendPage): ContentBlock[] {
+  const source = page.is_ocr || page.method === 'ocr' ? 'ocr' : 'native';
+
+  if (Array.isArray(page.blocks) && page.blocks.length > 0) {
+    return page.blocks
+      .map((block, i): ContentBlock | null => {
+        const content = typeof block.content === 'string' ? block.content : '';
+        const type = block.type || 'text';
+
+        if (!['text', 'image', 'formula', 'question'].includes(type)) {
+          return null;
+        }
+
+        return {
+          id: block.id || `p${page.page_number}-b${i}`,
+          type,
+          content,
+          metadata: {
+            source,
+            confidence: page.confidence ?? undefined,
+            ...block.metadata,
+          },
+        };
+      })
+      .filter((block): block is ContentBlock => block !== null);
+  }
+
+  const rawParagraphs = Array.isArray(page.paragraphs)
+    ? page.paragraphs
+    : typeof page.text === 'string'
+    ? page.text.split(/\n\s*\n/)
+    : [];
+
+  const paragraphs = rawParagraphs
+    .map((p) => String(p).replace(/\s+/g, ' ').trim())
     .filter((p) => p.length > 0);
 
   if (paragraphs.length === 0) {
@@ -310,7 +355,7 @@ function textToBlocks(page: BackendPage): ContentBlock[] {
         id: `p${page.page_number}-empty`,
         type: 'text',
         content: '',
-        metadata: { source, confidence: page.confidence },
+        metadata: { source, confidence: page.confidence ?? undefined },
       },
     ];
   }
@@ -319,21 +364,21 @@ function textToBlocks(page: BackendPage): ContentBlock[] {
     id: `p${page.page_number}-b${i}`,
     type: 'text',
     content,
-    metadata: { source, confidence: page.confidence },
+    metadata: { source, confidence: page.confidence ?? undefined },
   }));
 }
 
 function adaptContent(raw: BackendContentResponse): BookContent {
   const pages: PageData[] = (raw.pages || []).map((p) => ({
     page_number: p.page_number,
-    blocks: textToBlocks(p),
-    is_ocr: p.method === 'ocr',
-    confidence: p.confidence,
+    blocks: normalizeBlocks(p),
+    is_ocr: Boolean(p.is_ocr || p.method === 'ocr'),
+    confidence: p.confidence ?? undefined,
   }));
 
   return {
-    book_id: raw.id,
-    total_pages: raw.total_pages,
+    book_id: raw.book_id || raw.id || '',
+    total_pages: raw.total_pages || pages.length,
     pages,
     metadata: {
       title: raw.metadata?.title || raw.title,
