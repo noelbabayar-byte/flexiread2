@@ -32,6 +32,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   onProgressChange,
 }) => {
   const readerContainerRef = useRef<HTMLDivElement>(null);
+  const readerContentRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ReaderEngine | null>(null);
   const stateManagerRef = useRef<ReaderStateManager | null>(null);
   // Ref to avoid re-running the init effect when the parent passes a new callback reference.
@@ -59,6 +60,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
    * This runs once on mount
    */
   useEffect(() => {
+    if (isInitialized) return; // Sadece bir kez çalış
     if (!readerContainerRef.current) return;
     if (!bookContent || !bookContent.pages || bookContent.pages.length === 0) {
       console.error('[DEBUG] bookContent is empty or null:', bookContent);
@@ -82,8 +84,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       engine.initialize();
 
       // Render ALL pages (virtual scroll bypass for small books)
-      const pageElements = engine.renderVisiblePages(bookContent.pages);
-      const contentDiv = readerContainerRef.current.querySelector('.reader-content');
+      const pageElements = engine.renderAllPages(bookContent.pages);
+      const contentDiv = readerContentRef.current;
 
       if (contentDiv) {
         contentDiv.innerHTML = '';
@@ -98,7 +100,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       // Listen to progress changes – read latest callback from ref so the
       // effect doesn't re-run when the parent passes a new function reference.
       stateManager.onProgressChange((progress) => {
-        setCurrentPage(progress.currentPageNumber);
+        // Pagination modunda currentPage'i butonlar yönetir, scroll değil
         const cb = onProgressChangeRef.current;
         if (cb) {
           cb(progress.currentPageNumber, progress.currentBlockIndex);
@@ -128,10 +130,10 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         engineRef.current.destroy();
       }
     };
-  // Intentionally omit onProgressChange from deps – we read the latest
-  // callback via onProgressChangeRef so parent re-renders don't destroy
-  // and recreate the engine.
-  }, [bookId, bookContent]);
+  // Intentionally omit onProgressChange and bookContent from deps –
+  // bookContent is already loaded before mount (ReadingScreen guards this).
+  // We only re-init when bookId changes.
+  }, [bookId]);
 
   /**
    * Handle settings panel changes
@@ -143,37 +145,31 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   };
 
   const goToPreviousPage = useCallback(() => {
-    if (readerContainerRef.current && currentPage > 1) {
-      const prevPage = currentPage - 1;
-      const pageElement = readerContainerRef.current.querySelector(`[data-page-number="${prevPage}"]`);
-      if (pageElement) {
-        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
-        // Sayfa render edilmemiş, önce render et
-        const allPages = readerContainerRef.current.querySelectorAll('.reader-page');
-        if (allPages.length > 0) {
-          const container = readerContainerRef.current;
-          const pageHeight = container.scrollHeight / totalPages;
-          container.scrollTo({ top: pageHeight * (prevPage - 1), behavior: 'smooth' });
-        }
-      }
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  }, [currentPage]);
+
+  const goToNextPage = useCallback(() => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
     }
   }, [currentPage, totalPages]);
 
-  const goToNextPage = useCallback(() => {
-    if (readerContainerRef.current && currentPage < totalPages) {
-      const nextPage = currentPage + 1;
-      const pageElement = readerContainerRef.current.querySelector(`[data-page-number="${nextPage}"]`);
-      if (pageElement) {
-        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
-        // Sayfa render edilmemiş, scroll position hesapla
-        const container = readerContainerRef.current;
-        const pageHeight = container.scrollHeight / totalPages;
-        container.scrollTo({ top: pageHeight * (nextPage - 1), behavior: 'smooth' });
-      }
+  // Pagination: sadece currentPage'i göster (sayfalar yoksa bekle)
+  useEffect(() => {
+    if (!readerContainerRef.current || !isInitialized) return;
+    const allPages = readerContentRef.current?.querySelectorAll('.reader-page') || [];
+    if (allPages.length === 0) {
+      console.warn('[Pagination] No pages found, waiting...');
+      return;
     }
-  }, [currentPage, totalPages]);
+    allPages.forEach((page) => {
+      const el = page as HTMLElement;
+      const num = parseInt(el.dataset.pageNumber || '0');
+      el.style.display = num === currentPage ? 'block' : 'none';
+    });
+  }, [currentPage, isInitialized]);
 
   if (isLoading) {
     return (
@@ -201,7 +197,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         className="reader-container"
         data-theme={preferences.theme}
       >
-        <div className="reader-content">
+        <div ref={readerContentRef} className="reader-content">
           {/* Engine renders pages here */}
         </div>
 

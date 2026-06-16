@@ -315,32 +315,10 @@ export class ReaderEngine {
    * Update virtual scroll window
    */
   private updateVirtualScroll(): void {
-    const state = this.stateManager.getState();
-    if (!state.bookContent) return;
-
-    const scrollTop = this.container.scrollTop;
-    const containerHeight = this.container.clientHeight;
-    const totalHeight = this.container.scrollHeight;
-
-    const scrollableHeight = Math.max(1, totalHeight - containerHeight);
-    const scrollPercentage = scrollTop / scrollableHeight;
-    const estimatedPageIndex = Math.floor(
-      scrollPercentage * state.bookContent.total_pages
-    );
-
-    const startPageIndex = Math.max(0, estimatedPageIndex - 1);
-    const endPageIndex = Math.min(
-      state.bookContent.total_pages - 1,
-      estimatedPageIndex + 1
-    );
-
-    this.stateManager.updateVirtualScroll(startPageIndex, endPageIndex);
-    this.pruneOutOfBufferBlocks(startPageIndex, endPageIndex);
+    // Pagination mode: disabled to prevent page removal
+    return;
   }
 
-  /**
-   * Remove blocks outside virtual scroll buffer
-   */
   private pruneOutOfBufferBlocks(
     startPageIndex: number,
     endPageIndex: number
@@ -536,6 +514,13 @@ export class ReaderEngine {
     });
 
     return elements;
+  }
+
+  /**
+   * Render ALL pages for pagination mode
+   */
+  renderAllPages(pages: PageData[]): HTMLElement[] {
+    return this.renderVisiblePages(pages);
   }
 
   /**

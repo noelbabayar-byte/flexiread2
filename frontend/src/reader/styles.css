@@ -903,3 +903,71 @@
   min-width: 100px;
   text-align: center;
 }
+
+/* Pagination: sayfa geçiş animasyonu */
+.reader-page {
+  display: none;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.reader-page:first-child {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Pagination: sadece aktif sayfa görünsün */
+.reader-page {
+  display: none;
+}
+
+.reader-page-active {
+  display: block;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Pagination: opacity tabanlı (layout değişmez, scroll event tetiklenmez) */
+.reader-page {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.reader-page-active {
+  opacity: 1;
+  pointer-events: auto;
+  position: relative;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Pagination: opacity tabanlı */
+.reader-page {
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Pagination */
+.reader-page {
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Pagination: sayfa geçiş */
+.reader-page {
+  transition: opacity 0.2s ease-in-out;
+}

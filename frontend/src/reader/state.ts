@@ -200,8 +200,11 @@ export class ReaderStateManager {
    * Emit state change event
    */
   private emitStateChange(): void {
+    if (this.isEmitting) return;
+    this.isEmitting = true;
     const state = this.getState();
     this.stateListeners.forEach((listener) => listener(state));
+    this.isEmitting = false;
   }
 
   /**
