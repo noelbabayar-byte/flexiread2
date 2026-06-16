@@ -9,7 +9,7 @@
  * - State changes (font, theme) are passed to Engine via callbacks
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ReaderEngine, initializeEngine, getEngine } from '@/reader/engine';
 import { ReaderStateManager, initializeStateManager, getStateManager } from '@/reader/state';
 import { BookContent, PageData, ReadingPreferences } from '@/reader/types';
@@ -52,6 +52,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     formulaSize: 1,
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   /**
    * Initialize Engine and State Manager
    * This runs once on mount
@@ -79,14 +81,8 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       // Initialize engine
       engine.initialize();
 
-      // Render initial visible pages
-      const state = stateManager.getState();
-      const visiblePages = bookContent.pages.slice(
-        state.virtualScroll.startPageIndex,
-        state.virtualScroll.endPageIndex + 1
-      );
-
-      const pageElements = engine.renderVisiblePages(visiblePages);
+      // Render ALL pages (virtual scroll bypass for small books)
+      const pageElements = engine.renderVisiblePages(bookContent.pages);
       const contentDiv = readerContainerRef.current.querySelector('.reader-content');
 
       if (contentDiv) {
@@ -102,11 +98,15 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       // Listen to progress changes – read latest callback from ref so the
       // effect doesn't re-run when the parent passes a new function reference.
       stateManager.onProgressChange((progress) => {
+        setCurrentPage(progress.currentPageNumber);
         const cb = onProgressChangeRef.current;
         if (cb) {
           cb(progress.currentPageNumber, progress.currentBlockIndex);
         }
       });
+
+      // Set total pages
+      setTotalPages(bookContent.pages.length);
 
       // Listen to preference changes to update local state
       stateManager.onPreferenceChange((newPrefs) => {
@@ -142,6 +142,39 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     }
   };
 
+  const goToPreviousPage = useCallback(() => {
+    if (readerContainerRef.current && currentPage > 1) {
+      const prevPage = currentPage - 1;
+      const pageElement = readerContainerRef.current.querySelector(`[data-page-number="${prevPage}"]`);
+      if (pageElement) {
+        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        // Sayfa render edilmemiş, önce render et
+        const allPages = readerContainerRef.current.querySelectorAll('.reader-page');
+        if (allPages.length > 0) {
+          const container = readerContainerRef.current;
+          const pageHeight = container.scrollHeight / totalPages;
+          container.scrollTo({ top: pageHeight * (prevPage - 1), behavior: 'smooth' });
+        }
+      }
+    }
+  }, [currentPage, totalPages]);
+
+  const goToNextPage = useCallback(() => {
+    if (readerContainerRef.current && currentPage < totalPages) {
+      const nextPage = currentPage + 1;
+      const pageElement = readerContainerRef.current.querySelector(`[data-page-number="${nextPage}"]`);
+      if (pageElement) {
+        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        // Sayfa render edilmemiş, scroll position hesapla
+        const container = readerContainerRef.current;
+        const pageHeight = container.scrollHeight / totalPages;
+        container.scrollTo({ top: pageHeight * (nextPage - 1), behavior: 'smooth' });
+      }
+    }
+  }, [currentPage, totalPages]);
+
   if (isLoading) {
     return (
       <div className="reader-loading">
@@ -174,6 +207,29 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 
         {/* Progress bar */}
         <div className="reader-progress" />
+      </div>
+
+      {/* Page Navigation */}
+      <div className="reader-nav">
+        <button 
+          className="reader-nav-btn" 
+          onClick={goToPreviousPage}
+          disabled={currentPage <= 1}
+          title="Önceki Sayfa"
+        >
+          ← Önceki
+        </button>
+        <span className="reader-page-info">
+          Sayfa {currentPage} / {totalPages}
+        </span>
+        <button 
+          className="reader-nav-btn" 
+          onClick={goToNextPage}
+          disabled={currentPage >= totalPages}
+          title="Sonraki Sayfa"
+        >
+          Sonraki →
+        </button>
       </div>
 
       {/* Settings Panel - React component */}
