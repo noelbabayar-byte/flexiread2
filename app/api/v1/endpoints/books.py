@@ -5,7 +5,7 @@ Handles PDF upload with presigned URLs, processing status, and content delivery.
 
 import json
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func, update
 import redis
@@ -25,6 +25,8 @@ from app.schemas.books import (
 from app.utils.s3_storage import s3_storage
 from app.utils.rate_limiter import rate_limiter
 from worker.tasks import process_pdf_task
+import os
+import tempfile
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -505,9 +507,6 @@ async def get_book_content(
 # =============================================================================
 # Direct upload endpoint (bypasses S3 CORS issues)
 # =============================================================================
-from fastapi import UploadFile, File, Form
-import tempfile
-import os
 
 
 @router.post("/upload", response_model=ProcessBookResponse)
@@ -535,7 +534,10 @@ async def upload_book(
             title=title or file.filename.replace(".pdf", ""),
             original_filename=file.filename,
             status=BookStatus.PENDING,
-            original_pdf_url=f"s3://{settings.AWS_S3_BUCKET}/uploads/{current_user.id}/{book_id}/{file.filename}",
+            original_pdf_url=(
+        f"s3://{settings.AWS_S3_BUCKET}/uploads/"
+        f"{current_user.id}/{book_id}/{file.filename}"
+    ),
         )
         db.add(book)
         db.commit()
