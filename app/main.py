@@ -10,8 +10,6 @@ from starlette.requests import Request
 Request.max_body_size = 100 * 1024 * 1024  # 100MB
 
 
-
-
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.v1.api import api_router
