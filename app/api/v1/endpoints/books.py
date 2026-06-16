@@ -535,9 +535,9 @@ async def upload_book(
             original_filename=file.filename,
             status=BookStatus.PENDING,
             original_pdf_url=(
-        f"s3://{settings.AWS_S3_BUCKET}/uploads/"
-        f"{current_user.id}/{book_id}/{file.filename}"
-    ),
+                f"s3://{settings.AWS_S3_BUCKET}/uploads/"
+                f"{current_user.id}/{book_id}/{file.filename}"
+            ),
         )
         db.add(book)
         db.commit()

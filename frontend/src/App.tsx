@@ -35,7 +35,7 @@ const input: React.CSSProperties = {
   width: '100%',
   padding: '12px 14px',
   margin: '6px 0',
-  border: `1px solid ${darkMode ? '#334155' : colors.border}`,
+  border: `1px solid ${colors.border}`,
   borderRadius: 10,
   fontSize: '0.95rem',
   color: colors.text,
@@ -368,7 +368,7 @@ function LibraryScreen({
               textAlign: 'center',
               color: colors.muted,
               padding: '48px 20px',
-              border: `1px solid ${darkMode ? '#334155' : colors.border}`,
+              border: `1px solid ${colors.border}`,
               borderRadius: 14,
               background: colors.surface,
             }}
@@ -386,7 +386,7 @@ function LibraryScreen({
                 className="fr-card"
                 style={{
                   padding: 16,
-                  border: `1px solid ${darkMode ? '#334155' : colors.border}`,
+                  border: `1px solid ${colors.border}`,
                   borderRadius: 14,
                   marginBottom: 12,
                   background: colors.surface,

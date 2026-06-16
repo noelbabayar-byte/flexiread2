@@ -4,16 +4,14 @@ Registers all routers and configures middleware.
 """
 
 from fastapi import FastAPI
-from starlette.requests import Request
-
-# PATCH: Increase body size limit for PDF uploads (default 1MB too small)
-Request.max_body_size = 100 * 1024 * 1024  # 100MB
-
-
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.requests import Request
 from app.core.config import settings
 from app.api.v1.api import api_router
 import logging
+
+# PATCH: Increase body size limit for PDF uploads (default 1MB too small)
+Request.max_body_size = 100 * 1024 * 1024  # 100MB
 
 
 logging.basicConfig(
