@@ -39,7 +39,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   onProgressChangeRef.current = onProgressChange;
 
   const [isInitialized, setIsInitialized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showTOC, setShowTOC] = useState(false);
@@ -58,6 +58,12 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
    */
   useEffect(() => {
     if (!readerContainerRef.current) return;
+    if (!bookContent || !bookContent.pages || bookContent.pages.length === 0) {
+      console.error('[DEBUG] bookContent is empty or null:', bookContent);
+      setError('Book content is empty');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       // Initialize state manager

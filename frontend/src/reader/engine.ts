@@ -505,8 +505,22 @@ export class ReaderEngine {
       pageElement.className = 'reader-page';
       pageElement.dataset.pageNumber = page.page_number.toString();
 
+      // API returns text directly, convert to blocks if needed
+      let blocks = (page as any).blocks || [];
+      if (!blocks.length && (page as any).text) {
+        blocks = [{
+          id: `page-${page.page_number}-text`,
+          type: 'text',
+          content: (page as any).text,
+          metadata: {
+            source: (page as any).method || 'unknown',
+            confidence: (page as any).confidence
+          }
+        }];
+      }
+
       const blockElements: HTMLElement[] = [];
-      page.blocks.forEach((block, blockIndex) => {
+      blocks.forEach((block: any, blockIndex: number) => {
         const blockElement = this.renderContentBlock(
           block,
           page.page_number,

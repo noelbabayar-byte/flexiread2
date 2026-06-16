@@ -251,12 +251,25 @@ function processBook(bookId: string): Promise<{ book_id: string; task_id: string
  * processing. Returns the book id so the caller can poll status.
  */
 export async function uploadAndProcess(file: File, title?: string): Promise<string> {
-  const { book_id, presigned_url } = await getUploadUrl(file, title);
-  await putToS3(presigned_url, file);
-  await processBook(book_id);
-  return book_id;
+  const token = tokenStore.access;
+  const formData = new FormData();
+  formData.append('file', file);
+  if (title) formData.append('title', title);
+  
+  const res = await fetch(`${API_BASE}/api/v1/books/upload`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(res.status, text || 'Upload failed');
+  }
+  const data = await res.json();
+  return data.book_id;
 }
-
 /**
  * Poll status until the book reaches a terminal state.
  */

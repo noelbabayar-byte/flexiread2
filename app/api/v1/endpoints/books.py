@@ -500,3 +500,68 @@ async def get_book_content(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve book content",
         )
+
+# =============================================================================
+# Direct upload endpoint (bypasses S3 CORS issues)
+# =============================================================================
+from fastapi import UploadFile, File, Form
+import tempfile
+import os
+
+@router.post("/upload", response_model=ProcessBookResponse)
+async def upload_book(
+    file: UploadFile = File(...),
+    title: str = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        if not file.filename.lower().endswith(".pdf"):
+            raise HTTPException(400, detail="Only PDF files allowed")
+        
+        content = await file.read()
+        if len(content) > FREE_TIER_MAX_SIZE:
+            raise HTTPException(413, detail="Free tier max 50 MB")
+        
+        if current_user.ocr_quota_remaining <= 0:
+            raise HTTPException(403, detail="Insufficient OCR quota")
+        
+        book_id = uuid.uuid4()
+        book = Book(
+            id=book_id,
+            user_id=current_user.id,
+            title=title or file.filename.replace(".pdf", ""),
+            original_filename=file.filename,
+            status=BookStatus.PENDING,
+            original_pdf_url=f"s3://{settings.AWS_S3_BUCKET}/uploads/{current_user.id}/{book_id}/{file.filename}",
+        )
+        db.add(book)
+        db.commit()
+        
+        s3_key = f"uploads/{current_user.id}/{book_id}/{file.filename}"
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+        
+        if not s3_storage.upload_file(tmp_path, s3_key, "application/pdf"):
+            os.unlink(tmp_path)
+            raise HTTPException(500, detail="S3 upload failed")
+        
+        os.unlink(tmp_path)
+        
+        task = process_pdf_task.delay(
+            book_id=str(book_id), s3_pdf_key=s3_key, user_id=str(current_user.id)
+        )
+        
+        return ProcessBookResponse(
+            book_id=str(book_id),
+            status="processing",
+            task_id=task.id,
+            message="Upload and processing started",
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Direct upload failed: {e}")
+        raise HTTPException(500, detail="Upload failed")

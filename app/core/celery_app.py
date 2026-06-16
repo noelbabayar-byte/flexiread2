@@ -14,6 +14,7 @@ celery_app = Celery(
     "flexiread",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
+    include=["worker.tasks"],
 )
 
 # Configure Celery
