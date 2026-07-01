@@ -1,5 +1,4 @@
-"""
-Book endpoints: Upload, Status, and Content retrieval.
+"""Book endpoints: Upload, Status, and Content retrieval.
 Handles PDF upload with presigned URLs, processing status, and content delivery.
 """
 
@@ -188,7 +187,6 @@ async def get_upload_url(
         raise
     except Exception as e:
         logger.error(f"Upload URL generation failed: {e}")
-        # db.rollback() KALDIR - get_db dependency'si zaten yapıyor
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate upload URL",
