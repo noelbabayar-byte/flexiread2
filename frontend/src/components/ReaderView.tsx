@@ -54,6 +54,7 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
   /**
    * Initialize Engine and State Manager
    * This runs once on mount
@@ -128,9 +129,9 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         engineRef.current.destroy();
       }
     };
-  // Intentionally omit onProgressChange from deps – we read the latest
-  // callback via onProgressChangeRef so parent re-renders don't destroy
-  // and recreate the engine.
+    // Intentionally omit onProgressChange from deps – we read the latest
+    // callback via onProgressChangeRef so parent re-renders don't destroy
+    // and recreate the engine.
   }, [bookId, bookContent]);
 
   /**
@@ -142,38 +143,76 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
     }
   };
 
+  /**
+   * Go to previous page - FIXED: Now updates currentPage state
+   */
   const goToPreviousPage = useCallback(() => {
-    if (readerContainerRef.current && currentPage > 1) {
+    if (currentPage > 1) {
       const prevPage = currentPage - 1;
-      const pageElement = readerContainerRef.current.querySelector(`[data-page-number="${prevPage}"]`);
-      if (pageElement) {
-        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
-        // Sayfa render edilmemiş, önce render et
-        const allPages = readerContainerRef.current.querySelectorAll('.reader-page');
-        if (allPages.length > 0) {
-          const container = readerContainerRef.current;
-          const pageHeight = container.scrollHeight / totalPages;
-          container.scrollTo({ top: pageHeight * (prevPage - 1), behavior: 'smooth' });
+      setCurrentPage(prevPage);
+      
+      if (readerContainerRef.current) {
+        const pageElement = readerContainerRef.current.querySelector(
+          `[data-page-number="${prevPage}"]`
+        );
+        if (pageElement) {
+          pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }
+  }, [currentPage]);
+
+  /**
+   * Go to next page - FIXED: Now updates currentPage state
+   */
+  const goToNextPage = useCallback(() => {
+    if (currentPage < totalPages) {
+      const nextPage = currentPage + 1;
+      setCurrentPage(nextPage);
+      
+      if (readerContainerRef.current) {
+        const pageElement = readerContainerRef.current.querySelector(
+          `[data-page-number="${nextPage}"]`
+        );
+        if (pageElement) {
+          pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }
     }
   }, [currentPage, totalPages]);
 
-  const goToNextPage = useCallback(() => {
-    if (readerContainerRef.current && currentPage < totalPages) {
-      const nextPage = currentPage + 1;
-      const pageElement = readerContainerRef.current.querySelector(`[data-page-number="${nextPage}"]`);
-      if (pageElement) {
-        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
-        // Sayfa render edilmemiş, scroll position hesapla
-        const container = readerContainerRef.current;
-        const pageHeight = container.scrollHeight / totalPages;
-        container.scrollTo({ top: pageHeight * (nextPage - 1), behavior: 'smooth' });
-      }
-    }
-  }, [currentPage, totalPages]);
+  /**
+   * Sync currentPage with scroll position
+   * This keeps the page counter in sync when user manually scrolls
+   */
+  useEffect(() => {
+    const container = readerContainerRef.current;
+    if (!container || !isInitialized) return;
+
+    const handleScroll = () => {
+      const pages = container.querySelectorAll('.reader-page');
+      if (pages.length === 0) return;
+
+      let closestPage = 1;
+      let minDistance = Infinity;
+
+      // Find the page that's closest to the top of the viewport
+      pages.forEach((page) => {
+        const rect = page.getBoundingClientRect();
+        const distance = Math.abs(rect.top - 50); // 50px offset for header
+        if (distance < minDistance) {
+          minDistance = distance;
+          const pageNum = parseInt(page.getAttribute('data-page-number') || '1');
+          closestPage = pageNum;
+        }
+      });
+
+      setCurrentPage(closestPage);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [isInitialized]);
 
   if (isLoading) {
     return (
