@@ -108,6 +108,10 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
       // Set total pages
       setTotalPages(bookContent.pages.length);
 
+      // Initialize progress to current page from state manager
+      const initialProgress = stateManager.getState().progress;
+      setCurrentPage(initialProgress.currentPageNumber);
+
       // Listen to preference changes to update local state
       stateManager.onPreferenceChange((newPrefs) => {
         setPreferences(newPrefs);
@@ -145,32 +149,37 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
   const goToPreviousPage = useCallback(() => {
     if (readerContainerRef.current && currentPage > 1) {
       const prevPage = currentPage - 1;
-      const pageElement = readerContainerRef.current.querySelector(`[data-page-number="${prevPage}"]`);
-      if (pageElement) {
-        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const engine = engineRef.current;
+      if (engine) {
+        engine.navigateToPage(prevPage, true);
       } else {
-        // Sayfa render edilmemiş, önce render et
-        const allPages = readerContainerRef.current.querySelectorAll('.reader-page');
-        if (allPages.length > 0) {
-          const container = readerContainerRef.current;
-          const pageHeight = container.scrollHeight / totalPages;
-          container.scrollTo({ top: pageHeight * (prevPage - 1), behavior: 'smooth' });
+        // Fallback: use state manager if engine is not available
+        const stateManager = stateManagerRef.current;
+        if (stateManager) {
+          stateManager.updateProgress({
+            currentPageNumber: prevPage,
+            currentBlockIndex: 0,
+          });
         }
       }
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage]);
 
   const goToNextPage = useCallback(() => {
     if (readerContainerRef.current && currentPage < totalPages) {
       const nextPage = currentPage + 1;
-      const pageElement = readerContainerRef.current.querySelector(`[data-page-number="${nextPage}"]`);
-      if (pageElement) {
-        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const engine = engineRef.current;
+      if (engine) {
+        engine.navigateToPage(nextPage, true);
       } else {
-        // Sayfa render edilmemiş, scroll position hesapla
-        const container = readerContainerRef.current;
-        const pageHeight = container.scrollHeight / totalPages;
-        container.scrollTo({ top: pageHeight * (nextPage - 1), behavior: 'smooth' });
+        // Fallback: use state manager if engine is not available
+        const stateManager = stateManagerRef.current;
+        if (stateManager) {
+          stateManager.updateProgress({
+            currentPageNumber: nextPage,
+            currentBlockIndex: 0,
+          });
+        }
       }
     }
   }, [currentPage, totalPages]);
