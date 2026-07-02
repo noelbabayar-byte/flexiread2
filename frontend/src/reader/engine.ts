@@ -494,6 +494,76 @@ export class ReaderEngine {
   }
 
   /**
+   * Navigate to a specific page by number.
+   * If the page element is not in the DOM (pruned by virtual scroll),
+   * this method re-renders ALL pages so the target page is available,
+   * then scrolls to it. This is the correct approach for button-based
+   * page navigation, avoiding the broken scrollHeight/totalPages math.
+   */
+  navigateToPage(pageNumber: number, smooth: boolean = true): void {
+    const state = this.stateManager.getState();
+    if (!state.bookContent || !state.bookContent.pages) return;
+
+    const targetPageNum = Math.max(
+      1,
+      Math.min(pageNumber, state.bookContent.total_pages)
+    );
+
+    // Check if the target page is already in the DOM
+    const existingElement = this.container.querySelector(
+      `[data-page-number="${targetPageNum}"]`
+    );
+
+    if (existingElement) {
+      // Page exists in DOM, just scroll to it
+      existingElement.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'start',
+      });
+      // Update progress
+      this.stateManager.updateProgress({
+        currentPageNumber: targetPageNum,
+        currentBlockIndex: 0,
+      });
+      return;
+    }
+
+    // Page not in DOM (pruned by virtual scroll).
+    // Re-render all pages to ensure the target page is available.
+    const contentDiv = this.container.querySelector('.reader-content');
+    if (!contentDiv) return;
+
+    contentDiv.innerHTML = '';
+    this.blockRegistry.clear();
+    this.visibleBlocks.clear();
+    if (this.intersectionObserver) {
+      this.intersectionObserver.disconnect();
+      this.setupIntersectionObserver();
+    }
+
+    const pageElements = this.renderVisiblePages(state.bookContent.pages);
+    pageElements.forEach((el) => contentDiv.appendChild(el));
+
+    // After DOM is updated, scroll to target page
+    requestAnimationFrame(() => {
+      const targetElement = this.container.querySelector(
+        `[data-page-number="${targetPageNum}"]`
+      );
+      if (targetElement) {
+        targetElement.scrollIntoView({
+          behavior: smooth ? 'smooth' : 'auto',
+          block: 'start',
+        });
+      }
+      // Update progress
+      this.stateManager.updateProgress({
+        currentPageNumber: targetPageNum,
+        currentBlockIndex: 0,
+      });
+    });
+  }
+
+  /**
    * Render visible pages
    * Called by React component
    */
